@@ -9,6 +9,8 @@ xz: xz.o
 
 run: xz
 	time ./xz < test.in > test.out
+	@md5sum test.in
+	@xz -d < test.out | md5sum
 
 clean:
 	rm -f *.o xz test.out test.base
