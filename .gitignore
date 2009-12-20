@@ -1,0 +1,4 @@
+xz
+*.o
+test.out
+test.base
