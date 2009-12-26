@@ -1,18 +1,18 @@
-LDFLAGS = -L/Library/Fink/sl64/lib -llzma
-CFLAGS = -I/Library/Fink/sl64/include -g -O0
+LDFLAGS = -L/Library/Fink/sl64/lib -llzma -Wall
+CFLAGS = -I/Library/Fink/sl64/include -g -O0 -std=c99 -Wall
 
-xz: xz.o
-	gcc $(LDFLAGS) -Wall -o $@ $<
+pixz: pixz.o
+	gcc $(LDFLAGS) -o $@ $<
 
 %.o: %.c
-	gcc $(CFLAGS) -std=c99 -Wall -c -o $@ $<
+	gcc $(CFLAGS) -c -o $@ $<
 
-run: xz
-	time ./xz < test.in > test.out
+run: pixz
+	time ./$< < test.in > test.out
 	@md5sum test.in
 	@xz -d < test.out | md5sum
 
 clean:
-	rm -f *.o xz test.out test.base
+	rm -f *.o pixz test.out
 
 .PHONY: run clean
