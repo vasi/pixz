@@ -1,0 +1,10 @@
+* multi-block
+* thread
+* index tarballs
+
+* sane, safe errors (signals?)
+* command-line options
+* autoconf
+* optimized settings
+	* scale threads/memory to physical RAM
+	* scale threads to CPUs (gcd?)
