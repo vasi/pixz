@@ -1,10 +1,20 @@
+* subblock filter!?!
+
 * multi-block
 * thread
 * index tarballs
 
-* sane, safe errors (signals?)
+* sane, safe errors
+	* signal safe?
+	* return values, don't die
+	* don't leak
+	* malloc errors?
 * command-line options
 * autoconf
 * optimized settings
 	* scale threads/memory to physical RAM
 	* scale threads to CPUs (gcd?)
+* init/cleanup
+* keep the same stream for multiple blocks?
+	* even use the same buffers?
+	* don't write block header until we're writing to file?
