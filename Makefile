@@ -1,10 +1,12 @@
 LDFLAGS = -L/Library/Fink/sl64/lib -llzma -Wall
 CFLAGS = -I/Library/Fink/sl64/include -g -O0 -std=c99 -Wall
 
-pixz: pixz.o encode.o block.o
+PIXZ_OBJS: pixz.o encode.o block.o
+
+pixz: $(PIXZ_OBJS)
 	gcc $(LDFLAGS) -o $@ $^
 
-%.o: %.c pixz.h
+$(PIXZ_OBJS): %.o: %.c pixz.h
 	gcc $(CFLAGS) -c -o $@ $<
 
 run: pixz
