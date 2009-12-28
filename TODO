@@ -3,6 +3,9 @@
 * multi-block
 * thread
 * index tarballs
+	* just a list of files?
+	* sorted?
+	* ranges?
 
 * sane, safe errors
 	* signal safe?
@@ -18,3 +21,6 @@
 * keep the same stream for multiple blocks?
 	* even use the same buffers?
 	* don't write block header until we're writing to file?
+* support multiple streams?
+
+* append to tarballs without decompressing?
