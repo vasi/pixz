@@ -1,4 +1,5 @@
 pixz
+pixzlist
 *.o
 test.out
 test.base

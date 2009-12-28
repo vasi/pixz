@@ -53,7 +53,7 @@ fixme_err pixz_encode_options_default(pixz_encode_options *opts) {
     const size_t k = 1024, m = 1024 * k;
     
     // Set defaults
-    opts->blocksize = 8 * m;
+    opts->blocksize = 1 * m;
     opts->chunksize = 64 * k;
     opts->filters[0].id = LZMA_FILTER_LZMA2;
     opts->check = LZMA_CHECK_CRC32;

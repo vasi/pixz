@@ -1,13 +1,27 @@
 LDFLAGS = -L/Library/Fink/sl64/lib -llzma -Wall
 CFLAGS = -I/Library/Fink/sl64/include -g -O0 -std=c99 -Wall
 
-PIXZ_OBJS: pixz.o encode.o block.o
+CC = gcc $(CFLAGS) -c -o
+LD = gcc $(LDFLAGS) -o
+
+
+PIXZ_OBJS = pixz.o encode.o block.o
+
+all: pixz
 
 pixz: $(PIXZ_OBJS)
-	gcc $(LDFLAGS) -o $@ $^
+	$(LD) $@ $^
 
 $(PIXZ_OBJS): %.o: %.c pixz.h
-	gcc $(CFLAGS) -c -o $@ $<
+	$(CC) $@ $<
+
+
+pixzlist: pixzlist.o
+	$(LD) $@ $^
+
+pixzlist.o: pixzlist.c
+	$(CC) $@ $<
+
 
 run: pixz
 	time ./$< < test.in > test.out
@@ -17,4 +31,4 @@ run: pixz
 clean:
 	rm -f *.o pixz test.out
 
-.PHONY: run clean
+.PHONY: all run clean
