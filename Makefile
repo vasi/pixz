@@ -1,26 +1,24 @@
-LDFLAGS = -L/Library/Fink/sl64/lib -llzma -Wall
+LDFLAGS = -L/Library/Fink/sl64/lib -g -Wall
 CFLAGS = -I/Library/Fink/sl64/include -g -O0 -std=c99 -Wall
 
 CC = gcc $(CFLAGS) -c -o
 LD = gcc $(LDFLAGS) -o
 
+all: pixz pixzlist pixztar
 
-PIXZ_OBJS = pixz.o encode.o block.o
 
-all: pixz
-
-pixz: $(PIXZ_OBJS)
-	$(LD) $@ $^
-
-$(PIXZ_OBJS): %.o: %.c pixz.h
+%.o: %.c pixz.h
 	$(CC) $@ $<
 
+pixz: pixz.o encode.o block.o util.o
+	$(LD) $@ $^ -llzma
 
 pixzlist: pixzlist.o
-	$(LD) $@ $^
+	$(LD) $@ $^ -llzma
+	
+pixztar: tar.o util.o
+	$(LD) $@ $^ -larchive
 
-pixzlist.o: pixzlist.c
-	$(CC) $@ $<
 
 
 run: pixz
@@ -29,6 +27,6 @@ run: pixz
 	@xz -d < test.out | md5sum
 
 clean:
-	rm -f *.o pixz test.out
+	rm -f *.o pixz pixzlist pixztar test.out
 
 .PHONY: all run clean

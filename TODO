@@ -1,11 +1,11 @@
-* subblock filter!?!
-
-* multi-block
 * thread
 * index tarballs
 	* just a list of files?
 	* sorted?
 	* ranges?
+	* reading tars
+		* libarchive?
+		* copyfile/multi-header aware
 
 * sane, safe errors
 	* signal safe?

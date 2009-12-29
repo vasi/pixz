@@ -4,18 +4,6 @@
 #include <string.h>
 #include <sys/errno.h>
 
-#define Err(fmt, ...)   fprintf(stderr, fmt ".\n", ##__VA_ARGS__)
-#define fErr(fmt, ...)  Err(fmt, fname, ##__VA_ARGS__)
-#define feErr(fmt, ...) fErr(fmt ": %s", strerror(errno), ##__VA_ARGS__)
-#define cfErr(code, fmt, ...) Err(fmt, code, fname, ##__VA_ARGS__)
-
-#define R(ret, ...)     ({ __VA_ARGS__; return ret; }) 
-#define P(pred, ...)    ({ if (pred) { __VA_ARGS__; } })
-
-#define feRErr(ret, ...)        R(ret, feErr(__VA_ARGS__))
-#define fPRErr(pred, ret, ...)  P(pred, R(ret, fErr(__VA_ARGS__)))
-#define cfPRErr(code, ret, ...)  P(code != LZMA_OK, R(ret, cfErr(code, __VA_ARGS__)))
-
 #define CHUNKSIZE 4096
 #define MEMLIMIT (32 * 1024 * 1204)
 
