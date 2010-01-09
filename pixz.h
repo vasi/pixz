@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
 
 typedef int fixme_err;
@@ -58,3 +59,29 @@ fixme_err pixz_encode_stream_footer(FILE *outfile, pixz_encode_options *opts,
 fixme_err pixz_encode_index(FILE *outfile, pixz_encode_options *opts, lzma_index *index);
 
 fixme_err pixz_encode_file(FILE *infile, FILE *outfile, pixz_encode_options *opts);
+
+
+/***** INDEX *****/
+
+typedef struct pixz_index_record pixz_index_record;
+struct pixz_index_record {
+    size_t offset;
+    char *name;
+    pixz_index_record *next;
+};
+
+typedef struct {
+    pixz_index_record *first;
+    pixz_index_record *last;
+    
+    size_t last_offset;
+    bool have_last_offset;
+} pixz_index;
+
+pixz_index *pixz_index_new(void);
+void pixz_index_free(pixz_index *i);
+
+void pixz_index_add(pixz_index *i, size_t offset, const char *name);
+void pixz_index_finish(pixz_index *i, size_t offset);
+
+void pixz_index_dump(pixz_index *i, FILE *out);

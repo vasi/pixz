@@ -16,9 +16,8 @@ pixz: pixz.o encode.o block.o util.o
 pixzlist: pixzlist.o
 	$(LD) $@ $^ -llzma
 	
-pixztar: tar.o util.o
+pixztar: tar.o util.o index.o
 	$(LD) $@ $^ -larchive
-
 
 
 run: pixz
