@@ -24,7 +24,7 @@ typedef struct {
 pixz_block *pixz_block_new(size_t size, lzma_check check, lzma_filter *filters);
 void pixz_block_free(pixz_block *b);
 
-int pixz_block_full(pixz_block *b);
+bool pixz_block_full(pixz_block *b);
 size_t pixz_block_new_input_avail(pixz_block *b);
 uint8_t *pixz_block_new_input_next(pixz_block *b);
 void pixz_block_new_input(pixz_block *b, size_t bytes);

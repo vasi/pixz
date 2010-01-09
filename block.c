@@ -30,7 +30,7 @@ void pixz_block_free(pixz_block *b) {
     free(b);
 }
 
-int pixz_block_full(pixz_block *b) {
+bool pixz_block_full(pixz_block *b) {
     return pixz_block_new_input_avail(b) == 0;
 }
 
