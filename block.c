@@ -10,8 +10,7 @@ pixz_block *pixz_block_new(size_t size, lzma_check check, lzma_filter *filters) 
     b->obuf = malloc(osize);
     
     // Init block
-    b->block = (lzma_block){ .version = 0, .check = check, .filters = filters };
-    b->block.compressed_size = b->block.uncompressed_size = LZMA_VLI_UNKNOWN;
+    pixz_encode_initialize_block(&b->block, check, filters);
     
     // Init stream
     b->stream = (lzma_stream)LZMA_STREAM_INIT;
@@ -47,16 +46,9 @@ void pixz_block_new_input(pixz_block *b, size_t bytes) {
 }
 
 static fixme_err pixz_block_write_header(pixz_block *b) {
-    lzma_ret err = lzma_block_header_size(&b->block);
-    if (err != LZMA_OK)
-        pixz_die("Error #%d determining size of block header.\n", err);
+    pixz_encode_block_header(&b->block, b->stream.next_out,
+        b->stream.avail_out);
     size_t size = b->block.header_size;
-    if (size > b->stream.avail_out)
-        pixz_die("Block header too big.\n");
-    
-    err = lzma_block_header_encode(&b->block, b->stream.next_out);
-    if (err != LZMA_OK)
-        pixz_die("Error #%d encoding block header.\n", err);
     b->stream.next_out += size;
     b->stream.avail_out -= size;
     

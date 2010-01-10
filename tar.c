@@ -7,6 +7,7 @@
 
 // Tar uses records of 512 bytes
 #define CHUNKSIZE 512
+#define INDEXFILE "index.xz"
 
 typedef struct {
     FILE *file;
@@ -50,8 +51,22 @@ int main(void) {
     if (archive_read_finish(a) != ARCHIVE_OK)
         pixz_die("Error finishing read\n");
     
-    pixz_index_dump(index, stdout);
+    FILE *ifile = fopen(INDEXFILE, "w+");
+    if (!ifile)
+        pixz_die("Can't open index file\n");
+    pixz_encode_options *opts = pixz_encode_options_new();
+    pixz_encode_options_default(opts);
+    pixz_index_write(index, ifile, opts);
     pixz_index_free(index);
+    pixz_encode_options_free(opts);
+    
+    fseek(ifile, 0, SEEK_SET);
+    pixz_index *i2;
+    pixz_index_read_in_place(&i2, ifile);
+    fclose(ifile);
+    
+    pixz_index_dump(i2, stdout);
+    pixz_index_free(i2);
     
     return 0;
 }

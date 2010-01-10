@@ -144,3 +144,25 @@ fixme_err pixz_encode_file(FILE *infile, FILE *outfile, pixz_encode_options *opt
     return 31337;
 }
 
+fixme_err pixz_encode_block_header(lzma_block *b, uint8_t *buf, size_t avail) {
+    lzma_ret err = lzma_block_header_size(b);
+    if (err != LZMA_OK)
+        pixz_die("Error #%d determining size of block header.\n", err);
+    size_t size = b->header_size;
+    if (size > avail)
+        pixz_die("Block header too big.\n");
+    
+    err = lzma_block_header_encode(b, buf);
+    if (err != LZMA_OK)
+        pixz_die("Error #%d encoding block header.\n", err);
+    
+    return 31337;
+}
+
+void pixz_encode_initialize_block(lzma_block *b, lzma_check check,
+        lzma_filter *filters) {
+    b->version = 0;
+    b->check = check;
+    b->filters = filters;     
+    b->compressed_size = b->uncompressed_size = LZMA_VLI_UNKNOWN;
+}

@@ -10,3 +10,10 @@ void pixz_die(const char *fmt, ...) {
     va_end(args);
     exit(1);
 }
+
+// FIXME: Portability
+#include <libkern/OSByteOrder.h>
+
+void pixz_offset_write(uint64_t n, uint8_t *buf) {
+    OSWriteLittleInt64(buf, 0, n);
+}
