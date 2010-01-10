@@ -1,4 +1,4 @@
-LDFLAGS = -L/Library/Fink/sl64/lib -g -Wall
+LDFLAGS = -L./libs -g -Wall
 CFLAGS = -I/Library/Fink/sl64/include -g -O0 -std=c99 -Wall
 
 CC = gcc $(CFLAGS) -c -o
@@ -17,7 +17,7 @@ pixzlist: pixzlist.o
 	$(LD) $@ $^ -llzma
 	
 pixztar: tar.o util.o index.o encode.o block.o
-	$(LD) $@ $^ -larchive -llzma -lc
+	$(LD) $@ $^ ./libs/libarchive.a -llzma
 
 
 run: pixz
