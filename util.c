@@ -17,3 +17,7 @@ void pixz_die(const char *fmt, ...) {
 void pixz_offset_write(uint64_t n, uint8_t *buf) {
     OSWriteLittleInt64(buf, 0, n);
 }
+
+uint64_t pixz_offset_read(uint8_t *buf) {
+    return OSReadLittleInt64(buf, 0);
+}

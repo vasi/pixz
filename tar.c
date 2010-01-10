@@ -5,8 +5,7 @@
 
 #include <sys/errno.h>
 
-// Tar uses records of 512 bytes
-#define CHUNKSIZE 512
+#define CHUNKSIZE 4096
 #define INDEXFILE "index.xz"
 
 typedef struct {
@@ -18,6 +17,7 @@ static int pixz_tar_open(struct archive *a, void *refp);
 static int pixz_tar_close(struct archive *a, void *refp);
 static ssize_t pixz_tar_read(struct archive *a, void *refp, const void **buf);
 
+#include <string.h>
 
 int main(void) {
     pixz_index *index = pixz_index_new();
@@ -38,8 +38,11 @@ int main(void) {
         if (aerr == ARCHIVE_EOF) {
             pixz_index_finish(index, ftello(stdin));
             break;
-        } else if (aerr != ARCHIVE_OK)
-            pixz_die("Error reading header\n");
+        } else if (aerr != ARCHIVE_OK && aerr != ARCHIVE_WARN) {
+            // libarchive warns for silly things like failure to convert
+            // names into multibyte strings
+            pixz_die("Error reading header: %s\n", archive_error_string(a));
+        }
         
         const char *name = archive_entry_pathname(entry);
         size_t offset = archive_read_header_position(a);
@@ -58,11 +61,12 @@ int main(void) {
     pixz_encode_options_default(opts);
     pixz_index_write(index, ifile, opts);
     pixz_index_free(index);
+    lzma_check check = opts->check;
     pixz_encode_options_free(opts);
     
     fseek(ifile, 0, SEEK_SET);
     pixz_index *i2;
-    pixz_index_read_in_place(&i2, ifile);
+    pixz_index_read_in_place(&i2, ifile, check);
     fclose(ifile);
     
     pixz_index_dump(i2, stdout);

@@ -8,8 +8,9 @@
 typedef int fixme_err;
 
 void pixz_die(const char *fmt, ...);
-void pixz_offset_write(uint64_t n, uint8_t *buf);
 
+void pixz_offset_write(uint64_t n, uint8_t *buf);
+uint64_t pixz_offset_read(uint8_t *buf);
 
 /***** BLOCK *****/
 
@@ -92,6 +93,6 @@ void pixz_index_finish(pixz_index *i, size_t offset);
 void pixz_index_dump(pixz_index *i, FILE *out);
 
 fixme_err pixz_index_write(pixz_index *i, FILE *out, pixz_encode_options *opts);
-fixme_err pixz_index_read_in_place(pixz_index **i, FILE *in);
-fixme_err pixz_index_read(pixz_index **i, FILE *in);
+fixme_err pixz_index_read_in_place(pixz_index **i, FILE *in, lzma_check check);
+fixme_err pixz_index_read(pixz_index **i, FILE *in, lzma_check check);
 
