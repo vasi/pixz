@@ -40,8 +40,7 @@ lzma_filter gFilters[LZMA_FILTERS_MAX + 1];
 lzma_stream gStream = LZMA_STREAM_INIT;
 lzma_index *gIndex = NULL;
 
-file_index_t *gFileIndex = NULL;
-file_index_t *gLastFile = NULL;
+file_index_t *gFileIndex = NULL, *gLastFile = NULL;
 off_t gMultiHeaderStart = 0;
 bool gMultiHeader = false;
 
@@ -122,6 +121,7 @@ int main(int argc, char **argv) {
     
     add_file(gTotalRead, NULL);
     write_file_index();
+    free_file_index();
     
     // xz cleanup (index, footer)
     encode_index();
@@ -144,12 +144,17 @@ void die(const char *fmt, ...) {
 }
 
 ssize_t tar_read(struct archive *ar, void *ref, const void **bufp) {
-    if (gBlockSize == BLOCKSIZE)
+    size_t space = BLOCKSIZE - gBlockSize;
+    if (space > CHUNKSIZE)
+        space = CHUNKSIZE;
+    if (space == 0) {
         write_block();
+        space = CHUNKSIZE;
+    }
     
     uint8_t *buf = gBlockBuf + gBlockSize;
-    size_t rd = fread(buf, 1, CHUNKSIZE, gInFile);
-    if (rd == 0 && feof(gInFile))
+    size_t rd = fread(buf, 1, space, gInFile);
+    if (rd == 0 && ferror(gInFile))
         die("Error reading input file");
     gBlockSize += rd;
     gTotalRead += rd;
@@ -300,7 +305,6 @@ void write_file_index(void) {
     uint8_t offbuf[sizeof(uint64_t)]; 
     for (file_index_t *f = gFileIndex; f != NULL; f = f->next) {
         char *name = f->name ? f->name : "";
-        printf("%s\n", name);
         size_t len = strlen(name);
         write_file_index_bytes(len + 1, (uint8_t*)name);
         OSWriteLittleInt64(offbuf, 0, f->offset);
@@ -332,7 +336,6 @@ void write_file_index_bytes(size_t size, uint8_t *buf) {
 }
 
 void write_file_index_buf(lzma_action action) {
-    printf("%ld\n", gFileIndexBufPos);
     uint8_t obuf[CHUNKSIZE];
     gStream.avail_in = gFileIndexBufPos;
     gStream.next_in = gFileIndexBuf;

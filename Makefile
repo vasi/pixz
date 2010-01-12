@@ -4,7 +4,7 @@ CFLAGS = -I/Library/Fink/sl64/include -g -O0 -std=c99 -Wall
 CC = gcc $(CFLAGS) -c -o
 LD = gcc $(LDFLAGS) -o
 
-all: pixz pixzlist pixztar write
+all: pixz pixzlist pixztar write read
 
 
 %.o: %.c pixz.h
@@ -20,6 +20,9 @@ pixztar: tar.o util.o index.o encode.o block.o
 	$(LD) $@ $^ ./libs/libarchive.a -llzma
 
 write: write.o
+	$(LD) $@ $^ ./libs/libarchive.a -llzma
+
+read: read.o
 	$(LD) $@ $^ ./libs/libarchive.a -llzma
 
 run: pixz

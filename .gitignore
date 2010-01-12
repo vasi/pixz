@@ -2,9 +2,11 @@ pixz
 pixzlist
 pixztar
 write
+read
 
 *.tar
 *.txz
+*.tpz
 *.o
 
 test.out
