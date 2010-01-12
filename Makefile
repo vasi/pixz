@@ -4,7 +4,7 @@ CFLAGS = -I/Library/Fink/sl64/include -g -O0 -std=c99 -Wall
 CC = gcc $(CFLAGS) -c -o
 LD = gcc $(LDFLAGS) -o
 
-all: pixz pixzlist pixztar
+all: pixz pixzlist pixztar write
 
 
 %.o: %.c pixz.h
