@@ -1,6 +1,13 @@
 pixz
 pixzlist
 pixztar
+write
+
+*.tar
+*.txz
 *.o
+
 test.out
 test.base
+
+libs

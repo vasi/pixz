@@ -19,6 +19,8 @@ pixzlist: pixzlist.o
 pixztar: tar.o util.o index.o encode.o block.o
 	$(LD) $@ $^ ./libs/libarchive.a -llzma
 
+write: write.o
+	$(LD) $@ $^ ./libs/libarchive.a -llzma
 
 run: pixz
 	time ./$< < test.in > test.out
