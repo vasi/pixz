@@ -72,6 +72,7 @@ int main(int argc, char **argv) {
     decode_index();
     read_file_index();
     lzma_index_end(gIndex, NULL);
+    dump_file_index();
     
     return 0;
 }
@@ -149,10 +150,20 @@ void read_file_index(void) {
     gStream.avail_in = 0;
     while (true) {
         char *name = read_file_index_name();
-        // TODO
-        if (!name) break;
-        printf("%s\n", name);
+        if (!name)
+            break;
+        
+        file_index_t *f = malloc(sizeof(file_index_t));
+        f->name = strlen(name) ? strdup(name) : NULL;
+        f->offset = OSReadLittleInt64(gFileIndexBuf, gFIBPos);
         gFIBPos += sizeof(uint64_t);
+        
+        if (gLastFile) {
+            gLastFile->next = f;
+        } else {
+            gFileIndex = f;
+        }
+        gLastFile = f;
     }
     free(gFileIndexBuf);
     lzma_end(&gStream);
