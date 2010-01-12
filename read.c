@@ -24,10 +24,15 @@ struct file_index_t {
 };
 typedef struct file_index_t file_index_t;
 
+typedef struct {
+    lzma_block block;
+    lzma_filter filters[LZMA_FILTERS_MAX + 1];
+} block_wrapper_t;
+
 
 #pragma mark GLOBALS
 
-FILE *gInFile = NULL, *gOutFile = NULL;
+FILE *gInFile = NULL;
 
 lzma_stream gStream = LZMA_STREAM_INIT;
 lzma_check gCheck = LZMA_CHECK_NONE;
@@ -47,6 +52,7 @@ size_t gMoved = 0;
 void die(const char *fmt, ...);
 
 void decode_index(void);
+void *decode_block_start(off_t block_seek);
 
 void dump_file_index(void);
 void free_file_index(void);
@@ -56,7 +62,8 @@ char *read_file_index_name(void);
 void read_file_index_make_space(void);
 void read_file_index_data(void);
 
-void read_buf(void);
+void extract_file(const char *target);
+void extract_block(off_t block_seek, off_t skip, off_t size);
 
 
 #pragma mark FUNCTION DEFINITIONS
@@ -66,14 +73,15 @@ int main(int argc, char **argv) {
         die("Need two arguments");
     if (!(gInFile = fopen(argv[1], "r")))
         die("Can't open input file");
-    if (!(gOutFile = fopen(argv[2], "w")))
-        die("Can't open output file");
+    char *target = argv[2];
     
     decode_index();
     read_file_index();
-    lzma_index_end(gIndex, NULL);
-    dump_file_index();
     
+    extract_file(target);
+    
+    free_file_index();
+    lzma_index_end(gIndex, NULL);
     return 0;
 }
 
@@ -121,30 +129,38 @@ void decode_index(void) {
     }
 }
 
+void *decode_block_start(off_t block_seek) {
+    if (fseeko(gInFile, block_seek, SEEK_SET) == -1)
+        die("Error seeking to block");
+    
+    block_wrapper_t *bw = malloc(sizeof(block_wrapper_t));
+    bw->block = (lzma_block){ .check = gCheck, .filters = bw->filters };
+    
+    int b = fgetc(gInFile);
+    if (b == EOF || b == 0)
+        die("Error reading block size");
+    bw->block.header_size = lzma_block_header_size_decode(b);
+    uint8_t hdrbuf[bw->block.header_size];
+    hdrbuf[0] = (uint8_t)b;
+    if (fread(hdrbuf + 1, bw->block.header_size - 1, 1, gInFile) != 1)
+        die("Error reading block header");
+    if (lzma_block_header_decode(&bw->block, NULL, hdrbuf) != LZMA_OK)
+        die("Error decoding file index block header");
+    
+    if (lzma_block_decoder(&gStream, &bw->block) != LZMA_OK)
+        die("Error initializing file index stream");
+    
+    return bw;
+}
+
 void read_file_index(void) {    
     // find the last block
     lzma_vli loc = lzma_index_uncompressed_size(gIndex) - 1;
     lzma_index_record rec;
     if (lzma_index_locate(gIndex, &rec, loc))
         die("Can't locate file index block");
-    if (fseeko(gInFile, rec.stream_offset, SEEK_SET) == -1)
-        die("Error seeking to file index");
+    void *bdata = decode_block_start(rec.stream_offset);
     
-    lzma_filter filters[LZMA_FILTERS_MAX + 1];
-    lzma_block block = { .check = gCheck, .filters = filters };
-    int b = fgetc(gInFile);
-    if (b == EOF || b == 0)
-        die("Error reading file index block size");
-    block.header_size = lzma_block_header_size_decode(b);
-    uint8_t hdrbuf[block.header_size];
-    hdrbuf[0] = (uint8_t)b;
-    if (fread(hdrbuf + 1, block.header_size - 1, 1, gInFile) != 1)
-        die("Error reading file index block header");
-    if (lzma_block_header_decode(&block, NULL, hdrbuf) != LZMA_OK)
-        die("Error decoding file index block header");
-    
-    if (lzma_block_decoder(&gStream, &block) != LZMA_OK)
-        die("Error initializing file index stream");
     gFileIndexBuf = malloc(gFIBSize);
     gStream.avail_out = gFIBSize;
     gStream.avail_in = 0;
@@ -167,6 +183,7 @@ void read_file_index(void) {
     }
     free(gFileIndexBuf);
     lzma_end(&gStream);
+    free(bdata);
 }
 
 char *read_file_index_name(void) {
@@ -216,7 +233,7 @@ void read_file_index_data(void) {
             gStream.next_in = gFIBInputBuf;
         }
         
-        gFIBErr = lzma_code(&gStream, feof(gInFile) ? LZMA_FINISH : LZMA_RUN);
+        gFIBErr = lzma_code(&gStream, LZMA_RUN);
         if (gFIBErr != LZMA_OK && gFIBErr != LZMA_STREAM_END)
             die("Error decoding file index data");
     }
@@ -224,7 +241,7 @@ void read_file_index_data(void) {
 
 void dump_file_index(void) {
     for (file_index_t *f = gFileIndex; f != NULL; f = f->next) {
-        printf("%s\n", f->name ? f->name : "");
+        printf("%10llx %s\n", f->offset, f->name ? f->name : "");
     }    
 }
 
@@ -236,4 +253,82 @@ void free_file_index(void) {
         f = next;
     }
     gFileIndex = gLastFile = NULL;
+}
+
+void extract_file(const char *target) {
+    // find it in the index
+    file_index_t *f;
+    for (f = gFileIndex; f != NULL; f = f->next) {
+        if (f->name && strcmp(f->name, target) == 0)
+            break;
+    }
+    if (!f)
+        die("Can't find target file");
+    off_t fstart = f->offset, fsize = f->next->offset - fstart;
+    
+    // extract the data
+    lzma_index_record rec;
+    lzma_index_rewind(gIndex);
+    while (fsize && !lzma_index_read(gIndex, &rec)) {
+        off_t bstart = rec.uncompressed_offset,
+            bsize = rec.uncompressed_size;
+        if (fstart > bstart + bsize)
+            continue;
+        
+        off_t dstart = fstart > bstart ? fstart - bstart : 0;
+        bsize -= dstart;
+        off_t dsize = fsize > bsize ? bsize : fsize;
+        fsize -= dsize;
+        
+        extract_block(rec.stream_offset, dstart, dsize);
+    }
+    if (fsize)
+        die("Block with file contents missing");
+}
+
+void extract_block(off_t block_seek, off_t skip, off_t size) {    
+    void *bdata = decode_block_start(block_seek);
+    
+    uint8_t ibuf[CHUNKSIZE], obuf[CHUNKSIZE];
+    gStream.avail_in = 0;
+    lzma_ret err = LZMA_OK;
+    while (size && err != LZMA_STREAM_END) {
+        gStream.next_out = obuf;
+        gStream.avail_out = CHUNKSIZE;
+        
+        if (gStream.avail_in == 0) {
+            gStream.avail_in = fread(ibuf, 1, CHUNKSIZE, gInFile);
+            if (ferror(gInFile))
+                die("Error reading block data");
+            gStream.next_in = ibuf;
+        }
+        
+        err = lzma_code(&gStream, LZMA_RUN);
+        if (err != LZMA_OK && err != LZMA_STREAM_END)
+            die("Error decoding block");
+        
+        // do we want to write?
+        uint8_t *start = obuf;
+        size_t out = gStream.next_out - obuf;
+        if (out <= skip) {
+            skip -= out;
+            continue;
+        }
+        
+        // what do we want to write?
+        start += skip;
+        out -= skip;
+        skip = 0;
+        if (out > size)
+            out = size;
+        
+        if (fwrite(start, out, 1, stdout) != 1)
+            die("Error writing output");
+        size -= out;
+    }
+    if (size)
+        die("Block data missing");
+    
+    lzma_end(&gStream);
+    free(bdata);
 }

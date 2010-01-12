@@ -274,7 +274,7 @@ void add_file(off_t offset, const char *name) {
 
 void dump_file_index(void) {
     for (file_index_t *f = gFileIndex; f != NULL; f = f->next) {
-        printf("%s\n", f->name ? f->name : "");
+        printf("%10llx %s\n", f->offset, f->name ? f->name : "");
     }    
 }
 
