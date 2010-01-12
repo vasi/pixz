@@ -6,7 +6,6 @@
 #include <sys/errno.h>
 
 #define CHUNKSIZE 4096
-#define INDEXFILE "index.xz"
 
 typedef struct {
     FILE *file;
