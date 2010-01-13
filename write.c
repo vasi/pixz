@@ -90,7 +90,7 @@ int main(int argc, char **argv) {
             .options = &lzma_opts };
     gFilters[1] = (lzma_filter){ .id = LZMA_VLI_UNKNOWN, .options = NULL };
     
-    gBlockInSize = lzma_opts.dict_size * 1.0;
+    gBlockInSize = lzma_opts.dict_size * 2.0;
     gBlockOutSize = lzma_block_buffer_bound(gBlockInSize);
     
     // thread setup
