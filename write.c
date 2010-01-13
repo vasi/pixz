@@ -1,56 +1,28 @@
-#include <stdarg.h>
-#include <stdbool.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include "pixz.h"
 
 #include <archive.h>
 #include <archive_entry.h>
-#include <lzma.h>
 
 #include <libkern/OSByteOrder.h>
 
 
-#pragma mark DEFINES
-
-#define CHUNKSIZE 4096
-#define BLOCKSIZE (1024 * 1024)
-
-#define CHECK LZMA_CHECK_CRC32
-
-
-#pragma mark TYPES
-
-struct file_index_t {
-    char *name;
-    off_t offset;
-    struct file_index_t *next;
-};
-typedef struct file_index_t file_index_t;
-
-
 #pragma mark GLOBALS
 
-FILE *gInFile = NULL, *gOutFile = NULL;
-off_t gTotalRead = 0;
+static FILE *gOutFile = NULL;
+static off_t gTotalRead = 0;
 
-uint8_t gBlockBuf[BLOCKSIZE];
-size_t gBlockSize = 0;
-lzma_filter gFilters[LZMA_FILTERS_MAX + 1];
-lzma_stream gStream = LZMA_STREAM_INIT;
-lzma_index *gIndex = NULL;
+static uint8_t gBlockBuf[BLOCKSIZE];
+static size_t gBlockSize = 0;
+static lzma_filter gFilters[LZMA_FILTERS_MAX + 1];
 
-file_index_t *gFileIndex = NULL, *gLastFile = NULL;
-off_t gMultiHeaderStart = 0;
-bool gMultiHeader = false;
+static off_t gMultiHeaderStart = 0;
+static bool gMultiHeader = false;
 
-uint8_t gFileIndexBuf[CHUNKSIZE];
-size_t gFileIndexBufPos = 0;
+static uint8_t gFileIndexBuf[CHUNKSIZE];
+static size_t gFileIndexBufPos = 0;
 
 
 #pragma mark FUNCTION DECLARATIONS
-
-void die(const char *fmt, ...);
 
 void stream_edge(lzma_vli backward_size);
 void write_block(void);
@@ -59,8 +31,6 @@ void encode_index(void);
 
 bool is_multi_header(const char *name);
 void add_file(off_t offset, const char *name);
-void dump_file_index(void);
-void free_file_index(void);
 
 void write_file_index(void);
 void write_file_index_bytes(size_t size, uint8_t *buf);
@@ -131,16 +101,6 @@ int main(int argc, char **argv) {
     fclose(gOutFile);
     
     return 0;
-}
-
-void die(const char *fmt, ...) {
-    va_list args;
-    va_start(args, fmt);
-    vfprintf(stderr, fmt, args);
-    fprintf(stderr, "\n");
-    fflush(stderr);
-    va_end(args);
-    exit(1);
 }
 
 ssize_t tar_read(struct archive *ar, void *ref, const void **bufp) {
@@ -270,22 +230,6 @@ void add_file(off_t offset, const char *name) {
         gFileIndex = f;
     }
     gLastFile = f;
-}
-
-void dump_file_index(void) {
-    for (file_index_t *f = gFileIndex; f != NULL; f = f->next) {
-        printf("%10llx %s\n", f->offset, f->name ? f->name : "");
-    }    
-}
-
-void free_file_index(void) {
-    for (file_index_t *f = gFileIndex; f != NULL; ) {
-        file_index_t *next = f->next;
-        free(f->name);
-        free(f);
-        f = next;
-    }
-    gFileIndex = gLastFile = NULL;
 }
 
 bool is_multi_header(const char *name) {

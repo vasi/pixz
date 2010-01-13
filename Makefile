@@ -12,14 +12,14 @@ all: $(PROGS)
 %.o: %.c pixz.h
 	$(CC) $@ $<
 
-list: list.o
+list: list.o common.o
 	$(LD) $@ $^ -llzma
 
-write: write.o
+write: write.o common.o
 	$(LD) $@ $^ -larchive -llzma
 
-read: read.o
-	$(LD) $@ $^ -larchive -llzma
+read: read.o common.o
+	$(LD) $@ $^ -llzma
 
 clean:
 	rm -f *.o $(PROGS)
