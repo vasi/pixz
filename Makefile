@@ -1,4 +1,5 @@
-LDFLAGS = -L./libs -g -Wall
+#LDFLAGS = -Llibs -search_paths_first -g -Wall
+LDFLAGS = -L/Library/Fink/sl64/lib -search_paths_first -g -Wall
 CFLAGS = -I/Library/Fink/sl64/include -g -O0 -std=c99 -Wall
 
 CC = gcc $(CFLAGS) -c -o
@@ -17,13 +18,13 @@ pixzlist: pixzlist.o
 	$(LD) $@ $^ -llzma
 	
 pixztar: tar.o util.o index.o encode.o block.o
-	$(LD) $@ $^ ./libs/libarchive.a -llzma
+	$(LD) $@ $^ -larchive -llzma
 
 write: write.o
-	$(LD) $@ $^ ./libs/libarchive.a -llzma
+	$(LD) $@ $^ -larchive -llzma
 
 read: read.o
-	$(LD) $@ $^ ./libs/libarchive.a -llzma
+	$(LD) $@ $^ -larchive -llzma
 
 run: pixz
 	time ./$< < test.in > test.out
