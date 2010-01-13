@@ -209,3 +209,54 @@ void *decode_block_start(off_t block_seek) {
     
     return bw;
 }
+
+queue_t *queue_new(void) {
+    queue_t *q = malloc(sizeof(queue_t));
+    q->first = q->last = NULL;
+    pthread_mutex_init(&q->mutex, NULL);
+    pthread_cond_init(&q->pop_cond, NULL);
+    return q;
+}
+
+void queue_free(queue_t *q) {
+    pthread_mutex_destroy(&q->mutex);
+    pthread_cond_destroy(&q->pop_cond);
+    free(q);
+}
+
+void queue_push(queue_t *q, int type, void *data) {
+    pthread_mutex_lock(&q->mutex);
+    
+    queue_item_t *i = malloc(sizeof(queue_item_t));
+    i->type = type;
+    i->data = data;
+    i->next = NULL;
+    
+    if (q->last) {
+        q->last->next = i;
+    } else {
+        q->first = i;
+    }
+    q->last = i;
+    
+    pthread_cond_signal(&q->pop_cond);
+    pthread_mutex_unlock(&q->mutex);
+}
+
+int queue_pop(queue_t *q, void **datap) {
+    pthread_mutex_lock(&q->mutex);
+    while (!q->first)
+        pthread_cond_wait(&q->pop_cond, &q->mutex);
+    
+    queue_item_t *i = q->first;
+    q->first = i->next;
+    if (!q->first)
+        q->last = NULL;
+    
+    *datap = i->data;
+    int type = i->type;
+    free(i);
+    
+    pthread_mutex_unlock(&q->mutex);
+    return type;
+}
