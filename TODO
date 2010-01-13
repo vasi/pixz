@@ -1,27 +1,30 @@
-* use chunksize everywhere
-* thread
-* index tarballs
-	* just a list of files?
-	* sorted?
-	* ranges?
-	* reading tars
-		* libarchive?
-		* copyfile/multi-header aware
+CLEANUP
+	* massive cleanup
+		* error handling
+		* signal handling
+		* globals
+	* non-tar parallel compression
+	* multi-threaded decoding
+	* command-line options
+	* autoconf
+	* portability: byte-swapping
+	* optimized settings
+		* memory limit
+		* cpu number
 
-* sane, safe errors
-	* signal safe?
-	* return values, don't die
-	* don't leak
-	* malloc errors?
-* command-line options
-* autoconf
-* optimized settings
-	* scale threads/memory to physical RAM
-	* scale threads to CPUs (gcd?)
-* init/cleanup
-* keep the same stream for multiple blocks?
-	* even use the same buffers?
-	* don't write block header until we're writing to file?
-* support multiple streams?
+BUGS
+	* fast input or slow output -> blocks pile up, huge memory usage
+	* slow input -> CPUs idle while waiting for input
 
-* append to tarballs without decompressing?
+EFFICIENCY
+	* more efficient indexing: ranges? sorted?
+	* command-line options
+
+DOCUMENTATION
+	* man pages
+	* command help
+
+FEATURES
+	* support multiple streams
+		* tarball append without decompression
+	* other archive formats: cpio?

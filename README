@@ -1,0 +1,16 @@
+Pixz (pronounced 'pixie') is a parallel, indexing version of XZ.
+
+
+The existing XZ Utils ( http://tukaani.org/xz/ ) provide great compression in the .xz file format, but they have two significant problems:
+
+* They are single-threaded, while most users nowadays have multi-core computers.
+* The .xz files they produce are just one big block of compressed data, rather than a collection of smaller blocks. This makes random access to the original data impossible.
+
+
+With pixz, both these problems can eventually be solved. Currently these pixz tools are available:
+
+* write INPUT.tar OUTPUT.tpxz: Compresses an uncompressed tarball. The compression uses two cores. An index of all the files in the tarball is stored within the file, yet it remains compatible with standard xz and tar.
+
+* read INPUT.tpxz PATH: Efficiently extracts a single file from a tarball compressed by 'write'.
+
+* list [-t] INPUT.xz: Lists the xz blocks present within any .xz file. Optionally also lists a file index as stored by 'write'.
