@@ -4,12 +4,7 @@ pixztar
 write
 read
 
-*.tar
-*.txz
-*.tpxz
 *.o
 
-test.out
-test.base
-
 libs
+tars
