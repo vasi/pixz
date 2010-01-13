@@ -1,10 +1,10 @@
 #!/bin/sh
 
-base=lmnopuz
-file=lmnopuz/CheckPUZ.app/Contents/Resources/script
+#base=lmnopuz
+#file=lmnopuz/CheckPUZ.app/Contents/Resources/script
 
-#base=nicotine
-#file=nicotine/museek+-0.1.13/doc/SConscript
+base=nicotine
+file=nicotine/museek+-0.1.13/doc/SConscript
 
 #base=simbl
 #file=Users/vasi/Desktop/SIMBL/keywurl/SIMBL.pkg/Contents/Info.plist

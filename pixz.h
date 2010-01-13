@@ -65,5 +65,6 @@ void free_file_index(void);
 
 queue_t *queue_new(void);
 void queue_free(queue_t *q);
+// data should be on heap, if present
 void queue_push(queue_t *q, int type, void *data);
 int queue_pop(queue_t *q, void **datap);

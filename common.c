@@ -219,6 +219,12 @@ queue_t *queue_new(void) {
 }
 
 void queue_free(queue_t *q) {
+    for (queue_item_t *i = q->first; i; ) {
+        queue_item_t *tmp = i->next;
+        free(i->data);
+        free(i);
+        i = tmp;
+    }
     pthread_mutex_destroy(&q->mutex);
     pthread_cond_destroy(&q->pop_cond);
     free(q);
