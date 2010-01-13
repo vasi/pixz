@@ -14,7 +14,6 @@
 #define MEMLIMIT (64L * 1024 * 1024 * 1024) // crazy high
 
 #define CHUNKSIZE 4096
-#define BLOCKSIZE (1024 * 1024)
 
 
 #pragma mark TYPES

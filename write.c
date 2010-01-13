@@ -34,7 +34,7 @@ struct io_block_t {
 static pthread_t gEncodeThreads[ENCODE_THREADS];
 static pthread_t gReadThread;
 static queue_t *gEncodeQ, *gWriteQ;
-static size_t gBlockOutSize = 0;
+static size_t gBlockInSize = 0, gBlockOutSize = 0;
 
 static off_t gMultiHeaderStart = 0;
 static bool gMultiHeader = false;
@@ -90,7 +90,8 @@ int main(int argc, char **argv) {
             .options = &lzma_opts };
     gFilters[1] = (lzma_filter){ .id = LZMA_VLI_UNKNOWN, .options = NULL };
     
-    gBlockOutSize = lzma_block_buffer_bound(BLOCKSIZE);
+    gBlockInSize = lzma_opts.dict_size * 1.0;
+    gBlockOutSize = lzma_block_buffer_bound(gBlockInSize);
     
     // thread setup
     gEncodeQ = queue_new();
@@ -194,13 +195,13 @@ static void *read_thread(void *data) {
 static ssize_t tar_read(struct archive *ar, void *ref, const void **bufp) {
     if (!gReadBlock) {
         gReadBlock = malloc(sizeof(io_block_t));
-        gReadBlock->input = malloc(BLOCKSIZE);
+        gReadBlock->input = malloc(gBlockInSize);
         gReadBlock->output = malloc(gBlockOutSize);
         gReadBlock->insize = 0;
         gReadBlock->seq = gBlockNum++;
     }
     
-    size_t space = BLOCKSIZE - gReadBlock->insize;
+    size_t space = gBlockInSize - gReadBlock->insize;
     if (space > CHUNKSIZE)
         space = CHUNKSIZE;    
     uint8_t *buf = gReadBlock->input + gReadBlock->insize;
@@ -211,7 +212,7 @@ static ssize_t tar_read(struct archive *ar, void *ref, const void **bufp) {
     gTotalRead += rd;
     *bufp = buf;
     
-    if (gReadBlock->insize == BLOCKSIZE) {
+    if (gReadBlock->insize == gBlockInSize) {
         queue_push(gEncodeQ, MSG_BLOCK, gReadBlock);
         gReadBlock = NULL;
     }
