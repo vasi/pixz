@@ -22,7 +22,7 @@ all: $(PROGS)
 list: list.o common.o endian.o
 	$(LD) $@ $^ -llzma
 
-write: write.o common.o endian.o
+write: write.o common.o endian.o cpu.o
 	$(LD) $@ $^ -larchive -llzma
 
 read: read.o common.o endian.o

@@ -4,11 +4,6 @@
 #include <archive_entry.h>
 
 
-#pragma mark DEFINES
-
-#define ENCODE_THREADS 2
-
-
 #pragma mark TYPES
 
 typedef enum {
@@ -29,7 +24,8 @@ struct io_block_t {
 
 #pragma mark GLOBALS
 
-static pthread_t gEncodeThreads[ENCODE_THREADS];
+static size_t gNumEncodeThreads = 0;
+static pthread_t *gEncodeThreads = NULL;
 static pthread_t gReadThread;
 static queue_t *gEncodeQ, *gWriteQ;
 static size_t gBlockInSize = 0, gBlockOutSize = 0;
@@ -92,11 +88,13 @@ int main(int argc, char **argv) {
     gBlockOutSize = lzma_block_buffer_bound(gBlockInSize);
     
     // thread setup
+    gNumEncodeThreads = num_threads();
+    gEncodeThreads = malloc(gNumEncodeThreads * sizeof(pthread_t));
     gEncodeQ = queue_new();
     gWriteQ = queue_new();
     if (pthread_create(&gReadThread, NULL, &read_thread, NULL))
         die("Error creating read thread");
-    for (int i = 0; i < ENCODE_THREADS; ++i) {
+    for (int i = 0; i < gNumEncodeThreads; ++i) {
         if (pthread_create(&gEncodeThreads[i], NULL, &encode_thread, NULL))
             die("Error creating encode thread");
     }
@@ -135,6 +133,7 @@ int main(int argc, char **argv) {
         die("Error joining read thread");
     queue_free(gEncodeQ);
     queue_free(gWriteQ);
+    free(gEncodeThreads);
     
     return 0;
 }
@@ -178,10 +177,10 @@ static void *read_thread(void *data) {
     }
     
     // stop the other threads
-    for (int i = 0; i < ENCODE_THREADS; ++i) {
+    for (int i = 0; i < gNumEncodeThreads; ++i) {
         queue_push(gEncodeQ, MSG_STOP, NULL);
     }
-    for (int i = 0; i < ENCODE_THREADS; ++i) {
+    for (int i = 0; i < gNumEncodeThreads; ++i) {
         if (pthread_join(gEncodeThreads[i], NULL))
             die("Error joining encode thread");
     }

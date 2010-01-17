@@ -61,6 +61,7 @@ char *xstrdup(const char *s);
 
 uint64_t xle64dec(const uint8_t *d);
 void xle64enc(uint8_t *d, uint64_t n);
+size_t num_threads(void);
 
 void decode_index(void);
 void *decode_block_start(off_t block_seek);
