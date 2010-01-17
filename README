@@ -14,3 +14,31 @@ With pixz, both these problems can eventually be solved. Currently these pixz to
 * read INPUT.tpxz PATH: Efficiently extracts a single file from a tarball compressed by 'write'.
 
 * list [-t] INPUT.xz: Lists the xz blocks present within any .xz file. Optionally also lists a file index as stored by 'write'.
+
+
+
+Compare to:
+	plzip
+		* About equally complex, efficient
+		* lzip format seems less-used
+		* Version 1 is theoretically indexable...I think
+	ChopZip
+		* Python, much simpler
+		* More flexible, supports arbitrary compression programs
+		* Uses streams instead of blocks, not indexable
+		* Splits input and then combines output, much higher disk usage 
+	pxz
+		* Simpler code
+		* Uses OpenMP instead of pthreads
+		* Uses streams instead of blocks, not indexable
+		* Uses temp files and doesn't combine them until the whole file is compressed, high disk/memory usage
+
+Comparable tools for other compression algorithms:
+	pbzip2
+		* Not indexable
+		* Appears slow
+		* bzip2 algorithm is non-ideal
+	pigz
+		* Not indexable
+	dictzip
+		* Not parallel

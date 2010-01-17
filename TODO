@@ -17,7 +17,8 @@ BUGS
 	* slow input -> CPUs idle while waiting for input
 
 EFFICIENCY
-	* more efficient indexing: ranges? sorted?
+	* should use ordered list in collator
+	* more efficient indexing: ranges? sorted? mtree?
 	* command-line options
 
 DOCUMENTATION
@@ -28,3 +29,6 @@ FEATURES
 	* support multiple streams
 		* tarball append without decompression
 	* other archive formats: cpio?
+	* lzma-like API
+	* recovery tool (already is, kinda)
+		
