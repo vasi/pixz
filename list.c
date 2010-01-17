@@ -1,6 +1,6 @@
 #include "pixz.h"
 
-#include <unistd.h>
+#include <getopt.h>
 
 
 #pragma mark FUNCTION DEFINITIONS
@@ -29,8 +29,8 @@ int main(int argc, char **argv) {
     decode_index();
     lzma_index_record rec;
     while (!lzma_index_read(gIndex, &rec)) {
-        fprintf(stderr, "%9llu / %9llu\n", rec.unpadded_size,
-            rec.uncompressed_size);
+        fprintf(stderr, "%9"PRIuMAX" / %9"PRIuMAX"\n", (uintmax_t)rec.unpadded_size,
+            (uintmax_t)rec.uncompressed_size);
     }
     
     if (tar) {

@@ -3,8 +3,6 @@
 #include <archive.h>
 #include <archive_entry.h>
 
-#include <libkern/OSByteOrder.h>
-
 
 #pragma mark DEFINES
 
@@ -243,7 +241,7 @@ static void add_file(off_t offset, const char *name) {
     file_index_t *f = malloc(sizeof(file_index_t));
     f->offset = gMultiHeader ? gMultiHeaderStart : offset;
     gMultiHeader = false;
-    f->name = name ? strdup(name) : NULL;
+    f->name = name ? xstrdup(name) : NULL;
     f->next = NULL;
     
     if (gLastFile) {
@@ -377,7 +375,7 @@ static void write_file_index(void) {
         char *name = f->name ? f->name : "";
         size_t len = strlen(name);
         write_file_index_bytes(len + 1, (uint8_t*)name);
-        OSWriteLittleInt64(offbuf, 0, f->offset);
+        xle64enc(offbuf, f->offset);
         write_file_index_bytes(sizeof(offbuf), offbuf);
     }
     write_file_index_buf(LZMA_FINISH);

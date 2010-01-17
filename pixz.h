@@ -1,9 +1,12 @@
 #include <lzma.h>
 
+#define __USE_LARGEFILE 1
+
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
 
 #include <pthread.h>
 
@@ -54,6 +57,10 @@ extern file_index_t *gFileIndex, *gLastFile;
 #pragma mark FUNCTION DECLARATIONS
 
 void die(const char *fmt, ...);
+char *xstrdup(const char *s);
+
+uint64_t xle64dec(const uint8_t *d);
+void xle64enc(uint8_t *d, uint64_t n);
 
 void decode_index(void);
 void *decode_block_start(off_t block_seek);

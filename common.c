@@ -2,8 +2,6 @@
 
 #include <stdarg.h>
 
-#include <libkern/OSByteOrder.h>
-
 
 #pragma mark TYPES
 
@@ -50,9 +48,19 @@ void die(const char *fmt, ...) {
     exit(1);
 }
 
+char *xstrdup(const char *s) {
+    if (!s)
+        return NULL;
+    size_t len = strlen(s);
+    char *r = malloc(len + 1);
+    if (!r)
+        return NULL;
+    return memcpy(r, s, len + 1); 
+}
+
 void dump_file_index(void) {
     for (file_index_t *f = gFileIndex; f != NULL; f = f->next) {
-        fprintf(stderr, "%10llx %s\n", f->offset, f->name ? f->name : "");
+        fprintf(stderr, "%10"PRIuMAX" %s\n", (uintmax_t)f->offset, f->name ? f->name : "");
     }    
 }
 
@@ -83,8 +91,8 @@ void read_file_index(void) {
             break;
         
         file_index_t *f = malloc(sizeof(file_index_t));
-        f->name = strlen(name) ? strdup(name) : NULL;
-        f->offset = OSReadLittleInt64(gFileIndexBuf, gFIBPos);
+        f->name = strlen(name) ? xstrdup(name) : NULL;
+        f->offset = xle64dec(gFileIndexBuf + gFIBPos);
         gFIBPos += sizeof(uint64_t);
         
         if (gLastFile) {
