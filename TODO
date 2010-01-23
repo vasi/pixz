@@ -11,10 +11,12 @@ CLEANUP
 	* optimized settings
 		* memory limit
 		* cpu number
+		* block size, for max CPU usage
 
 BUGS
 	* fast input or slow output -> blocks pile up, huge memory usage
 	* slow input -> CPUs idle while waiting for input
+	* performance lags under IO?
 
 EFFICIENCY
 	* should use ordered list in collator
