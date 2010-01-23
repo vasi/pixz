@@ -293,7 +293,7 @@ static void block_queue_free(int type, void *p) {
 #pragma mark ENCODING
 
 static void *encode_thread(void *arg) {
-    int thnum = (uintptr_t)arg;
+    int __attribute__((unused)) thnum = (uintptr_t)arg;
     
     while (true) {
         io_block_t *ib;
