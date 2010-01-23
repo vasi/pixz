@@ -58,7 +58,8 @@ static archive_close_callback tar_ok;
 
 static void block_init(lzma_block *block);
 static void stream_edge(lzma_vli backward_size);
-static void write_blocks(io_block_t **ibs, size_t *seq);
+static void write_blocks(size_t *seq, io_block_t **ibs, io_block_t *ib);
+static void write_block(io_block_t *ib);
 static void encode_index(void);
 
 static void write_file_index(void);
@@ -84,7 +85,7 @@ int main(int argc, char **argv) {
             .options = &lzma_opts };
     gFilters[1] = (lzma_filter){ .id = LZMA_VLI_UNKNOWN, .options = NULL };
     
-    gBlockInSize = lzma_opts.dict_size * 2.0;
+    gBlockInSize = lzma_opts.dict_size * 1.0;
     gBlockOutSize = lzma_block_buffer_bound(gBlockInSize);
     
     // thread setup
@@ -121,9 +122,7 @@ int main(int argc, char **argv) {
         if (msg == MSG_STOP)
             break;
         
-        ib->next = ibs;
-        ibs = ib;
-        write_blocks(&ibs, &seq);
+        write_blocks(&seq, &ibs, ib);
     }
     
     // file index
@@ -321,38 +320,43 @@ static void stream_edge(lzma_vli backward_size) {
         die("Error writing stream edge");
 }
 
-static void write_blocks(io_block_t **ibs, size_t *seq) {
-    // check if we can write anything
-    bool block_missing = false;
-    while (!block_missing) {
-        block_missing = true; // assume no match
-        
-        io_block_t *prev = NULL;
-        for (io_block_t *ib = *ibs; ib; ib = ib->next) {
-            if (ib->seq == *seq) { // we have the next block
-                if (fwrite(ib->output, ib->outsize, 1, gOutFile) != 1)
-                    die("Error writing block data");
-                if (lzma_index_append(gIndex, NULL,
-                        lzma_block_unpadded_size(&ib->block),
-                        ib->block.uncompressed_size) != LZMA_OK)
-                    die("Error adding to index");
-                
-                // remove the found block
-                if (prev) {
-                    prev->next = ib->next;
-                } else {
-                    *ibs = ib->next;
-                }
-                queue_push(gReadQ, MSG_BLOCK, ib);
-                
-                ++*seq;
-                block_missing = false;
-                break;
-            }
-            
-            prev = ib;
-        } // for io_block_t
-    } // while !block_missing
+static void write_block(io_block_t *ib) {
+    // Does it make sense to chunk this?
+    size_t written = 0;
+    while (ib->outsize > written) {
+        size_t size = ib->outsize - written;
+        if (size > CHUNKSIZE)
+            size = CHUNKSIZE;
+        if (fwrite(ib->output + written, size, 1, gOutFile) != 1)
+            die("Error writing block data");
+        written += size;
+    }
+    
+    if (lzma_index_append(gIndex, NULL,
+            lzma_block_unpadded_size(&ib->block),
+            ib->block.uncompressed_size) != LZMA_OK)
+        die("Error adding to index");
+}
+
+static void write_blocks(size_t *seq, io_block_t **ibs, io_block_t *ib) {
+    // insert it into the queue, in order
+    io_block_t **prev = ibs, *post = *ibs;
+    while (post && post->seq < ib->seq) {
+        prev = &post->next;
+        post = post->next;
+    }
+    ib->next = post;
+    *prev = ib;
+    
+    // write the blocks that we can
+    io_block_t *cur = *ibs;
+    while (cur && cur->seq == *seq) {
+        write_block(cur);
+        queue_push(gReadQ, MSG_BLOCK, cur);
+        ++*seq;
+        cur = cur->next;
+    }
+    *ibs = cur;
 }
 
 static void encode_index(void) {

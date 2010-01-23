@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 #base=lmnopuz
 #file=lmnopuz/CheckPUZ.app/Contents/Resources/script
