@@ -15,8 +15,8 @@ CLEANUP
 
 BUGS
 	* fast input or slow output -> blocks pile up, huge memory usage
+		* performance lags under IO?
 	* slow input -> CPUs idle while waiting for input
-	* performance lags under IO?
 
 EFFICIENCY
 	* should use ordered list in collator

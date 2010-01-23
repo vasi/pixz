@@ -36,12 +36,16 @@ struct queue_item_t {
     queue_item_t *next;
 };
 
+typedef void (*queue_free_t)(int type, void *p);
+
 typedef struct {
     queue_item_t *first;
     queue_item_t *last;
     
     pthread_mutex_t mutex;
     pthread_cond_t pop_cond;
+    
+    queue_free_t freer;
 } queue_t;
 
 
@@ -70,8 +74,7 @@ void read_file_index(void);
 void dump_file_index(void);
 void free_file_index(void);
 
-queue_t *queue_new(void);
+queue_t *queue_new(queue_free_t freer);
 void queue_free(queue_t *q);
-// data should be on heap, if present
 void queue_push(queue_t *q, int type, void *data);
 int queue_pop(queue_t *q, void **datap);

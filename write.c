@@ -27,7 +27,7 @@ struct io_block_t {
 static size_t gNumEncodeThreads = 0;
 static pthread_t *gEncodeThreads = NULL;
 static pthread_t gReadThread;
-static queue_t *gEncodeQ, *gWriteQ;
+static queue_t *gReadQ, *gEncodeQ, *gWriteQ;
 static size_t gBlockInSize = 0, gBlockOutSize = 0;
 
 static off_t gMultiHeaderStart = 0;
@@ -47,7 +47,7 @@ static size_t gFileIndexBufPos = 0;
 
 static void *read_thread(void *data);
 static void *encode_thread(void *data);
-
+static void block_queue_free(int type, void *p);
 
 static bool is_multi_header(const char *name);
 static void add_file(off_t offset, const char *name);
@@ -90,8 +90,16 @@ int main(int argc, char **argv) {
     // thread setup
     gNumEncodeThreads = num_threads();
     gEncodeThreads = malloc(gNumEncodeThreads * sizeof(pthread_t));
-    gEncodeQ = queue_new();
-    gWriteQ = queue_new();
+    gReadQ = queue_new(block_queue_free);
+    gEncodeQ = queue_new(block_queue_free);
+    gWriteQ = queue_new(block_queue_free);
+    for (size_t i = 0; i < (int)(gNumEncodeThreads * 2 + 4); ++i) {
+        // create blocks, including a margin of error
+        io_block_t *ib = malloc(sizeof(io_block_t));
+        ib->input = malloc(gBlockInSize);
+        ib->output = malloc(gBlockOutSize);
+        queue_push(gReadQ, MSG_BLOCK, ib);
+    }
     if (pthread_create(&gReadThread, NULL, &read_thread, NULL))
         die("Error creating read thread");
     for (int i = 0; i < gNumEncodeThreads; ++i) {
@@ -133,6 +141,7 @@ int main(int argc, char **argv) {
         die("Error joining read thread");
     queue_free(gEncodeQ);
     queue_free(gWriteQ);
+    queue_free(gReadQ);
     free(gEncodeThreads);
     
     return 0;
@@ -167,13 +176,9 @@ static void *read_thread(void *data) {
     
     // write last block, if necessary
     if (gReadBlock) {
-        if (gReadBlock->insize) {
-            queue_push(gEncodeQ, MSG_BLOCK, gReadBlock);
-        } else { // if this block had only one read, and it was EOF
-            free(gReadBlock->input);
-            free(gReadBlock->output);
-            free(gReadBlock);
-        }
+        // if this block had only one read, and it was EOF, it's waste
+        queue_push(gReadBlock->insize ? gEncodeQ : gReadQ, MSG_BLOCK, gReadBlock);
+        gReadBlock = NULL;
     }
     
     // stop the other threads
@@ -191,9 +196,7 @@ static void *read_thread(void *data) {
 
 static ssize_t tar_read(struct archive *ar, void *ref, const void **bufp) {
     if (!gReadBlock) {
-        gReadBlock = malloc(sizeof(io_block_t));
-        gReadBlock->input = malloc(gBlockInSize);
-        gReadBlock->output = malloc(gBlockOutSize);
+        queue_pop(gReadQ, (void**)&gReadBlock);
         gReadBlock->insize = 0;
         gReadBlock->seq = gBlockNum++;
     }
@@ -249,6 +252,22 @@ static void add_file(off_t offset, const char *name) {
         gFileIndex = f;
     }
     gLastFile = f;
+}
+
+static void block_queue_free(int type, void *p) {
+    switch (type) {
+        case MSG_BLOCK: {
+            io_block_t *ib = (io_block_t*)p;
+            free(ib->input);
+            free(ib->output);
+            free(ib);
+            break;
+        }
+        case MSG_STOP:
+            break;
+        default:
+            die("Unknown msg type %d", type);
+    }
 }
 
 
@@ -324,9 +343,7 @@ static void write_blocks(io_block_t **ibs, size_t *seq) {
                 } else {
                     *ibs = ib->next;
                 }
-                free(ib->input);
-                free(ib->output);
-                free(ib);
+                queue_push(gReadQ, MSG_BLOCK, ib);
                 
                 ++*seq;
                 block_missing = false;

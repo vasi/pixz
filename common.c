@@ -218,9 +218,10 @@ void *decode_block_start(off_t block_seek) {
     return bw;
 }
 
-queue_t *queue_new(void) {
+queue_t *queue_new(queue_free_t freer) {
     queue_t *q = malloc(sizeof(queue_t));
     q->first = q->last = NULL;
+    q->freer = freer;
     pthread_mutex_init(&q->mutex, NULL);
     pthread_cond_init(&q->pop_cond, NULL);
     return q;
@@ -229,7 +230,8 @@ queue_t *queue_new(void) {
 void queue_free(queue_t *q) {
     for (queue_item_t *i = q->first; i; ) {
         queue_item_t *tmp = i->next;
-        free(i->data);
+        if (q->freer)
+            q->freer(i->type, i->data);
         free(i);
         i = tmp;
     }
