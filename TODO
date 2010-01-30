@@ -11,7 +11,7 @@ CLEANUP
 	* optimized settings
 		* memory limit
 		* cpu number
-		* block size, for max CPU usage
+		* block size, for max threads on small files
 
 BUGS
 	* fast input or slow output -> blocks pile up, huge memory usage
@@ -21,7 +21,7 @@ BUGS
 EFFICIENCY
 	* should use ordered list in collator
 	* more efficient indexing: ranges? sorted? mtree?
-	* command-line options
+	* circular buffer > linked list?
 
 DOCUMENTATION
 	* man pages
