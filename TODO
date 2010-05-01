@@ -17,6 +17,9 @@ BUGS
 	* fast input or slow output -> blocks pile up, huge memory usage
 		* performance lags under IO?
 	* slow input -> CPUs idle while waiting for input
+	* safe extraction
+		* validate file headers against index
+		* abort if block size exceeded
 
 EFFICIENCY
 	* should use ordered list in collator
