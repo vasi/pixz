@@ -5,19 +5,22 @@ endif
 LIBPREFIX = /Library/Fink/sl64
 LDFLAGS = -L$(LIBPREFIX)/lib -g -Wall
 ifdef APPLE
+ifeq ($(CC),gcc)
 	LDFLAGS += -search_paths_first
+endif
 endif
 CFLAGS = -I$(LIBPREFIX)/include -g -O0 -std=c99 -Wall -Wno-unknown-pragmas
 
-CC = gcc $(CFLAGS) -c -o
-LD = gcc $(LDFLAGS) -o
+CC = gcc
+COMPILE = $(CC) $(CFLAGS) -c -o
+LD = $(CC) $(LDFLAGS) -o
 
 PROGS = write read list
 
 all: $(PROGS)
 
 %.o: %.c pixz.h
-	$(CC) $@ $<
+	$(COMPILE) $@ $<
 
 list: list.o common.o endian.o
 	$(LD) $@ $^ -llzma
