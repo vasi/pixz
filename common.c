@@ -76,11 +76,12 @@ void free_file_index(void) {
 
 void read_file_index(void) {    
     // find the last block
+    lzma_index_iter iter;
+	lzma_index_iter_init(&iter, gIndex);
     lzma_vli loc = lzma_index_uncompressed_size(gIndex) - 1;
-    lzma_index_record rec;
-    if (lzma_index_locate(gIndex, &rec, loc))
+    if (lzma_index_iter_locate(&iter, loc))
         die("Can't locate file index block");
-    void *bdata = decode_block_start(rec.stream_offset);
+    void *bdata = decode_block_start(iter.block.compressed_file_offset);
     
     gFileIndexBuf = malloc(gFIBSize);
     gStream.avail_out = gFIBSize;
@@ -199,7 +200,8 @@ void *decode_block_start(off_t block_seek) {
         die("Error seeking to block");
     
     block_wrapper_t *bw = malloc(sizeof(block_wrapper_t));
-    bw->block = (lzma_block){ .check = gCheck, .filters = bw->filters };
+    bw->block = (lzma_block){ .check = gCheck, .filters = bw->filters,
+	 	.version = 0 };
     
     int b = fgetc(gInFile);
     if (b == EOF || b == 0)

@@ -38,21 +38,20 @@ static void extract_file(const char *target) {
     off_t fstart = f->offset, fsize = f->next->offset - fstart;
     
     // extract the data
-    lzma_index_record rec;
-    lzma_index_rewind(gIndex);
-    while (fsize && !lzma_index_read(gIndex, &rec)) {
-        off_t bstart = rec.uncompressed_offset,
-            bsize = rec.uncompressed_size;
-        if (fstart > bstart + bsize)
-            continue;
-        
+    lzma_index_iter iter;
+    lzma_index_iter_init(&iter, gIndex);
+    if (lzma_index_iter_locate(&iter, fstart))
+        die("Block with file contents can't be found");
+	do {
+        off_t bstart = iter.block.uncompressed_file_offset,
+            bsize = iter.block.uncompressed_size;        
         off_t dstart = fstart > bstart ? fstart - bstart : 0;
         bsize -= dstart;
         off_t dsize = fsize > bsize ? bsize : fsize;
         fsize -= dsize;
         
-        extract_block(rec.stream_offset, dstart, dsize);
-    }
+        extract_block(iter.block.compressed_file_offset, dstart, dsize);
+    } while (fsize && !lzma_index_iter_next(&iter, LZMA_INDEX_ITER_BLOCK));
     if (fsize)
         die("Block with file contents missing");
 }

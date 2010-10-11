@@ -27,10 +27,12 @@ int main(int argc, char **argv) {
         die("Can't open input file");
     
     decode_index();
-    lzma_index_record rec;
-    while (!lzma_index_read(gIndex, &rec)) {
-        fprintf(stderr, "%9"PRIuMAX" / %9"PRIuMAX"\n", (uintmax_t)rec.unpadded_size,
-            (uintmax_t)rec.uncompressed_size);
+    lzma_index_iter iter;
+    lzma_index_iter_init(&iter, gIndex);
+    while (!lzma_index_iter_next(&iter, LZMA_INDEX_ITER_BLOCK)) {
+        fprintf(stderr, "%9"PRIuMAX" / %9"PRIuMAX"\n",
+            (uintmax_t)iter.block.unpadded_size,
+            (uintmax_t)iter.block.uncompressed_size);
     }
     
     if (tar) {

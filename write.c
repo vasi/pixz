@@ -119,7 +119,7 @@ int main(int argc, char **argv) {
     debug("writer: start");
     
     // pre-block setup: header, index
-    if (!(gIndex = lzma_index_init(NULL, NULL)))
+    if (!(gIndex = lzma_index_init(NULL)))
         die("Error creating index");
     stream_edge(LZMA_VLI_UNKNOWN);
     
