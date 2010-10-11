@@ -3,6 +3,7 @@
 #include <archive.h>
 #include <archive_entry.h>
 
+#include <getopt.h>
 
 #pragma mark TYPES
 
@@ -25,6 +26,8 @@ struct io_block_t {
 #pragma mark GLOBALS
 
 #define DEBUG 0
+
+static bool gTar = true;
 
 static size_t gNumEncodeThreads = 0;
 static pthread_t *gEncodeThreads = NULL;
@@ -79,6 +82,21 @@ static void write_file_index_buf(lzma_action action);
 
 int main(int argc, char **argv) {
     debug("launch");
+    
+    int ch;
+    while ((ch = getopt(argc, argv, "t")) != -1) {
+        switch (ch) {
+            case 't':
+                gTar = false;
+                break;
+            default:
+                die("Unknown option");
+        }
+    }
+    argc -= optind - 1;
+    argv += optind - 1;
+    
+
     if (argc != 3)
         die("Need two arguments");
     if (!(gInFile = fopen(argv[1], "r")))
@@ -137,8 +155,10 @@ int main(int argc, char **argv) {
     }
     
     // file index
-    write_file_index();
-    free_file_index();
+    if (gTar) {
+        write_file_index();
+        free_file_index();
+    }
     
     // post-block cleanup: index, footer
     encode_index();
@@ -167,7 +187,9 @@ static void *read_thread(void *data) {
     
     struct archive *ar = archive_read_new();
     archive_read_support_compression_none(ar);
-    archive_read_support_format_tar(ar);
+    if (gTar)
+        archive_read_support_format_tar(ar);
+    archive_read_support_format_raw(ar);
     archive_read_open(ar, NULL, tar_ok, tar_read, tar_ok);
     struct archive_entry *entry;
     while (true) {
@@ -181,12 +203,17 @@ static void *read_thread(void *data) {
             die("Error reading archive entry");
         }
         
-        add_file(archive_read_header_position(ar),
-            archive_entry_pathname(entry));
-    }    
+        if (archive_format(ar) == ARCHIVE_FORMAT_RAW)
+            gTar = false;
+        if (gTar) {
+            add_file(archive_read_header_position(ar),
+                archive_entry_pathname(entry));
+        }
+    }
     archive_read_finish(ar);
     fclose(gInFile);
-    add_file(gTotalRead, NULL);
+    if (gTar)
+        add_file(gTotalRead, NULL);
     
     // write last block, if necessary
     if (gReadBlock) {
