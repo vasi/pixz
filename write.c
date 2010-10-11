@@ -294,6 +294,7 @@ static void block_queue_free(int type, void *p) {
 
 static void *encode_thread(void *arg) {
     int __attribute__((unused)) thnum = (uintptr_t)arg;
+    lzma_stream stream = LZMA_STREAM_INIT;
     
     while (true) {
         io_block_t *ib;
@@ -302,16 +303,32 @@ static void *encode_thread(void *arg) {
             break;
         
         debug("encoder %d: received %zu", thnum, ib->seq);
+        
         block_init(&ib->block);
-        ib->outsize = 0;
-        if (lzma_block_buffer_encode(&ib->block, NULL, ib->input, ib->insize,
-                ib->output, &ib->outsize, gBlockOutSize) != LZMA_OK)
-            die("Error encoding block");
+        if (lzma_block_header_encode(&ib->block, ib->output) != LZMA_OK)
+            die("Error encoding block header");
+        ib->outsize = ib->block.header_size;
+        
+        if (lzma_block_encoder(&stream, &ib->block) != LZMA_OK)
+            die("Error creating block encoder");
+        stream.next_in = ib->input;
+        stream.avail_in = ib->insize;
+        stream.next_out = ib->output + ib->outsize;
+        stream.avail_out = gBlockOutSize - ib->outsize;
+        
+        lzma_ret err = LZMA_OK;
+        while (err != LZMA_STREAM_END) {
+            err = lzma_code(&stream, LZMA_FINISH);
+            if (err != LZMA_OK && err != LZMA_STREAM_END)
+                die("Error encoding block");
+        }
+        ib->outsize = stream.next_out - ib->output;
         
         debug("encoder %d: sending %zu", thnum, ib->seq);
         queue_push(gWriteQ, MSG_BLOCK, ib);
     }
     
+    lzma_end(&stream);
     return NULL;
 }
 
