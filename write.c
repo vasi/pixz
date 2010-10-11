@@ -28,6 +28,7 @@ struct io_block_t {
 #define DEBUG 0
 
 static bool gTar = true;
+static uint32_t gPreset = LZMA_PRESET_DEFAULT;
 
 static size_t gNumEncodeThreads = 0;
 static pthread_t *gEncodeThreads = NULL;
@@ -84,13 +85,17 @@ int main(int argc, char **argv) {
     debug("launch");
     
     int ch;
-    while ((ch = getopt(argc, argv, "t")) != -1) {
+    while ((ch = getopt(argc, argv, "t0123456789")) != -1) {
         switch (ch) {
             case 't':
                 gTar = false;
                 break;
             default:
-                die("Unknown option");
+                if (optopt >= '0' && optopt <= '9') {
+                    gPreset = optopt - '0';
+                } else {
+                    die("Unknown option");
+                }
         }
     }
     argc -= optind - 1;
@@ -106,7 +111,7 @@ int main(int argc, char **argv) {
     
     // xz options
     lzma_options_lzma lzma_opts;
-    if (lzma_lzma_preset(&lzma_opts, LZMA_PRESET_DEFAULT))
+    if (lzma_lzma_preset(&lzma_opts, gPreset))
         die("Error setting lzma options");
     gFilters[0] = (lzma_filter){ .id = LZMA_FILTER_LZMA2,
             .options = &lzma_opts };
