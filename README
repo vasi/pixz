@@ -42,3 +42,8 @@ Comparable tools for other compression algorithms:
 		* Not indexable
 	dictzip
 		* Not parallel
+
+
+Requirements:
+	* libarchive 2.8 or later
+	* liblzma 4.999.9-beta-212 or later (from the xz distribution)
