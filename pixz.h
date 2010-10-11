@@ -13,6 +13,8 @@
 
 #pragma mark DEFINES
 
+#define PIXZ_INDEX_MAGIC 0xDBAE14D62E324CA6LL
+
 #define CHECK LZMA_CHECK_CRC32
 #define MEMLIMIT (64L * 1024 * 1024 * 1024) // crazy high
 
@@ -70,7 +72,7 @@ size_t num_threads(void);
 void decode_index(void);
 void *decode_block_start(off_t block_seek);
 
-void read_file_index(void);
+bool read_file_index(void);
 void dump_file_index(void);
 void free_file_index(void);
 

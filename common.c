@@ -74,7 +74,7 @@ void free_file_index(void) {
     gFileIndex = gLastFile = NULL;
 }
 
-void read_file_index(void) {    
+bool read_file_index(void) {    
     // find the last block
     lzma_index_iter iter;
 	lzma_index_iter_init(&iter, gIndex);
@@ -86,6 +86,14 @@ void read_file_index(void) {
     gFileIndexBuf = malloc(gFIBSize);
     gStream.avail_out = gFIBSize;
     gStream.avail_in = 0;
+    
+    // Check if this is really an index
+    read_file_index_data();
+    if (xle64dec(gFileIndexBuf + gFIBPos) != PIXZ_INDEX_MAGIC) {
+        gLastFile = gFileIndex = NULL;
+        return false;
+    }
+    
     while (true) {
         char *name = read_file_index_name();
         if (!name)
@@ -106,6 +114,8 @@ void read_file_index(void) {
     free(gFileIndexBuf);
     lzma_end(&gStream);
     free(bdata);
+    
+    return true;
 }
 
 static char *read_file_index_name(void) {

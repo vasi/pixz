@@ -7,19 +7,6 @@
 
 int main(int argc, char **argv) {
     char *progname = argv[0];
-    int ch;
-    bool tar = false;
-    while ((ch = getopt(argc, argv, "t")) != -1) {
-        switch (ch) {
-            case 't':
-                tar = true;
-                break;
-            default:
-                die("Unknown option");
-        }
-    }
-    argc -= optind - 1;
-    argv += optind - 1;
     
     if (argc != 2)
         die("Usage: %s [-t] file", progname);
@@ -35,9 +22,8 @@ int main(int argc, char **argv) {
             (uintmax_t)iter.block.uncompressed_size);
     }
     
-    if (tar) {
+    if (read_file_index()) {
         fprintf(stderr, "\n");
-        read_file_index();
         dump_file_index();
         free_file_index();
     }

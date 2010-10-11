@@ -435,7 +435,9 @@ static void write_file_index(void) {
     if (lzma_block_encoder(&gStream, &block) != LZMA_OK)
         die("Error creating file index encoder");
     
-    uint8_t offbuf[sizeof(uint64_t)]; 
+    uint8_t offbuf[sizeof(uint64_t)];
+    xle64enc(offbuf, PIXZ_INDEX_MAGIC);
+    write_file_index_bytes(sizeof(offbuf), offbuf);
     for (file_index_t *f = gFileIndex; f != NULL; f = f->next) {
         char *name = f->name ? f->name : "";
         size_t len = strlen(name);

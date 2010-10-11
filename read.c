@@ -17,7 +17,8 @@ int main(int argc, char **argv) {
     char *target = argv[2];
     
     decode_index();
-    read_file_index();
+    if (!read_file_index())
+        die("File has no index");
     
     extract_file(target);
     
