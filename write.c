@@ -102,12 +102,17 @@ int main(int argc, char **argv) {
     argv += optind - 1;
     
 
-    if (argc != 3)
+    if (argc == 1) {
+        gInFile = stdin;
+        gOutFile = stdout;
+    } else if (argc == 3) {
+        if (!(gInFile = fopen(argv[1], "r")))
+            die("Can't open input file");
+        if (!(gOutFile = fopen(argv[2], "w")))
+            die("Can't open output file");
+    } else {
         die("Need two arguments");
-    if (!(gInFile = fopen(argv[1], "r")))
-        die("Can't open input file");
-    if (!(gOutFile = fopen(argv[2], "w")))
-        die("Can't open output file");
+    }
     
     // xz options
     lzma_options_lzma lzma_opts;
