@@ -8,10 +8,14 @@
 int main(int argc, char **argv) {
     char *progname = argv[0];
     
-    if (argc != 2)
-        die("Usage: %s [-t] file", progname);
-    if (!(gInFile = fopen(argv[1], "r")))
-        die("Can't open input file");
+    if (argc == 1) {
+        gInFile = stdin;
+    } else if (argc == 2) {
+        if (!(gInFile = fopen(argv[1], "r")))
+            die("Can't open input file");
+    } else {
+        die("Usage: %s [FILE]", progname);
+    }
     
     decode_index();
     lzma_index_iter iter;

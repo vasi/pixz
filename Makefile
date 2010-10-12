@@ -32,6 +32,9 @@ write: write.o common.o endian.o cpu.o
 read: read.o common.o endian.o
 	$(LD) $@ $^ -llzma
 
+pread: pread.o common.o endian.o
+	$(LD) $@ $^ -llzma
+
 clean:
 	rm -f *.o $(PROGS)
 

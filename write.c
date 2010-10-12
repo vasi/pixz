@@ -82,6 +82,7 @@ static void write_file_index_buf(lzma_action action);
 #pragma mark FUNCTION DEFINITIONS
 
 int main(int argc, char **argv) {
+    char *progname = argv[0];
     debug("launch");
     
     int ch;
@@ -111,7 +112,7 @@ int main(int argc, char **argv) {
         if (!(gOutFile = fopen(argv[2], "w")))
             die("Can't open output file");
     } else {
-        die("Need two arguments");
+        die("Usage: %s [-t] [INPUT OUTPUT]", progname);
     }
     
     // xz options
