@@ -26,6 +26,7 @@ struct wanted_t {
 
 static wanted_t *gWantedFiles = NULL;
 
+static bool spec_match(char *spec, char *name);
 static void wanted_files(size_t count, char **specs);
 static void wanted_free(wanted_t *w);
 
@@ -166,6 +167,18 @@ static void wanted_free(wanted_t *w) {
     }
 }
 
+static bool spec_match(char *spec, char *name) {
+    bool match = true;
+    for (; *spec; ++spec, ++name) {
+        if (!*name || *spec != *name) { // spec must be equal or prefix
+            match = false;
+            break;
+        }
+    }
+    // If spec's a prefix of the file name, it must be a dir name
+    return match && (!*name || *name == '/');
+}
+
 static void wanted_files(size_t count, char **specs) {
     if (count == 0) {
         gWantedFiles = NULL;
@@ -188,17 +201,7 @@ static void wanted_files(size_t count, char **specs) {
     // Check each file in order, to see if we want it
     for (file_index_t *f = gFileIndex; f->name; f = f->next) {
         for (char **spec = specs; spec < specs + count; ++spec) {
-            char *sc, *nc;
-            bool match = true;
-            for (sc = *spec, nc = f->name; *sc; ++sc, ++nc) {
-                if (!*nc || *sc != *nc) { // spec must be equal or prefix
-                    match = false;
-                    break;
-                }
-            }
-            // If spec's a prefix of the file name, it must be a dir name
-            if (match && (!*nc || *nc == '/')) {
-                // Ok, add the file
+            if (spec_match(*spec, f->name)) {
                 wanted_t *w = malloc(sizeof(wanted_t));
                 *w = (wanted_t){ .name = f->name, .start = f->offset,
                     .end = f->next->offset, .next = NULL };
