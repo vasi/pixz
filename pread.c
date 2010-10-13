@@ -1,5 +1,8 @@
 #include "pixz.h"
 
+#include <archive.h>
+#include <archive_entry.h>
+
 #include <getopt.h>
 
 /* TODO
@@ -55,6 +58,64 @@ static void set_block_sizes(void);
 
 #pragma mark MAIN
 
+static int tar_ok(struct archive *ar, void *ref) {
+    return ARCHIVE_OK;
+}
+
+static pipeline_item_t *gArItem = NULL, *gArLastItem = NULL;
+static size_t gArLastOffset, gArLastSize;
+static wanted_t *gArWanted = NULL;
+static bool gArNextItem = false;
+
+static bool tar_next_block(void) {
+    if (gArItem && !gArNextItem && gArWanted) {
+        io_block_t *ib = (io_block_t*)(gArItem->data);
+        if (gArWanted->start < ib->uoffset + ib->outsize)
+            return true; // No need
+    }
+    
+    if (gArLastItem)
+        queue_push(gPipelineStartQ, PIPELINE_ITEM, gArLastItem);
+    gArLastItem = gArItem;
+    gArItem = pipeline_merged();
+    gArNextItem = false;
+    return gArItem;
+}
+
+static ssize_t tar_read(struct archive *ar, void *ref, const void **bufp) {
+    // If we got here, the last bit of archive is ok to write
+    if (gArItem) {
+        io_block_t *ib = (io_block_t*)(gArItem->data);
+        fwrite(ib->output + gArLastOffset, gArLastSize, 1, gOutFile);
+    }
+    
+    // TODO: don't assume we have wanted files!!!
+    
+    // Write the first wanted file
+    if (!tar_next_block())
+        return 0;
+    
+    io_block_t *ib = (io_block_t*)(gArItem->data);
+    fprintf(stderr, "tar wanted: %s\n", gArWanted->name);
+    ssize_t off = gArWanted->start - ib->uoffset, size = gArWanted->size;
+    if (off < 0) {
+        size += off;
+        off = 0;
+    }
+    if (off + size > ib->outsize) {
+        size = ib->outsize - off;
+        gArNextItem = true; // force the end of this block
+    } else {
+        gArWanted = gArWanted->next;
+    }
+    
+    fprintf(stderr, "tar read off = %zd, size = %zd\n", off, size);
+    gArLastOffset = off;
+    gArLastSize = size;
+    *bufp = ib->output + off;
+    return size;
+}
+
 int main(int argc, char **argv) {
     gInFile = stdin;
     gOutFile = stdout;
@@ -82,39 +143,34 @@ int main(int argc, char **argv) {
 #endif
     set_block_sizes();
     
-    wanted_t *w = gWantedFiles;
+    gArWanted = gWantedFiles;
     pipeline_create(block_create, block_free, read_thread, decode_thread);
-    pipeline_item_t *pi;
-    while ((pi = pipeline_merged())) {
-        io_block_t *ib = (io_block_t*)(pi->data);
-        
-        if (gWantedFiles) {
-            size_t uend = ib->uoffset + ib->outsize;
-            while (w && w->start < uend) {
-                ssize_t off = w->start - ib->uoffset, size = w->size;
-                if (off < 0) {
-                    size += off;
-                    off = 0;
-                }
-                if (off + size > ib->outsize)
-                    size = ib->outsize - off;
-                
-                fwrite(ib->output + off, size, 1, gOutFile);
-                
-                if (w->end >= uend) {
-                    break; // Next block wants this too
-                } else {
-                    w = w->next;
-                }
+    if (gFileIndexOffset) {
+        struct archive *ar = archive_read_new();
+        archive_read_support_compression_none(ar);
+        archive_read_support_format_tar(ar);
+        archive_read_open(ar, NULL, tar_ok, tar_read, tar_ok);
+        struct archive_entry *entry;
+        while (true) {
+            int aerr = archive_read_next_header(ar, &entry);
+            if (aerr == ARCHIVE_EOF) {
+                break;
+            } else if (aerr != ARCHIVE_OK && aerr != ARCHIVE_WARN) {
+                fprintf(stderr, "%s\n", archive_error_string(ar));
+                die("Error reading archive entry");
             }
-        } else { // want everything
-            fwrite(ib->output, ib->outsize, 1, gOutFile);
+            fprintf(stderr, "%s\n", archive_entry_pathname(entry));
         }
-        
-        queue_push(gPipelineStartQ, PIPELINE_ITEM, pi);
+    } else {
+        pipeline_item_t *pi;
+        while ((pi = pipeline_merged())) {
+            io_block_t *ib = (io_block_t*)(pi->data);
+            fwrite(ib->output, ib->outsize, 1, gOutFile);
+            queue_push(gPipelineStartQ, PIPELINE_ITEM, pi);
+        }
     }
-    pipeline_destroy();
     
+    pipeline_destroy();
     wanted_free(gWantedFiles);
     return 0;
 }
