@@ -7,12 +7,20 @@
  * - verify file-index matches archive contents
  */
 
+
+#define DEBUG 1
+#if DEBUG
+    #define debug(str, ...) fprintf(stderr, str "\n", ##__VA_ARGS__)
+#else
+    #define debug(...)
+#endif
+
+
 typedef struct wanted_t wanted_t;
 struct wanted_t {
     wanted_t *next;
     char *name;
-    size_t offset;
-    size_t size;
+    size_t start, end, size;
 };
 
 static wanted_t *gWantedFiles = NULL;
@@ -60,14 +68,10 @@ int main(int argc, char **argv) {
         }
     }
     
-    // Set up file index
     gFileIndexOffset = read_file_index();
     wanted_files(argc - optind, argv + optind);
-    for (wanted_t *w = gWantedFiles; w; w = w->next)
-        printf("want: %s\n", w->name);
-    exit(0);
-    
     set_block_sizes();
+    
     pipeline_create(block_create, block_free, read_thread, decode_thread);
     pipeline_item_t *pi;
     while ((pi = pipeline_merged())) {
@@ -115,6 +119,7 @@ static void set_block_sizes() {
 
 static void read_thread(void) {
     off_t offset = ftello(gInFile);
+    wanted_t *w = gWantedFiles;
     
     lzma_index_iter iter;
     lzma_index_iter_init(&iter, gIndex);
@@ -124,6 +129,18 @@ static void read_thread(void) {
             bsize = iter.block.total_size;
         if (gFileIndexOffset && boffset == gFileIndexOffset)
             continue;
+        
+        // Do we need this block?
+        if (gWantedFiles) {
+            size_t uend = iter.block.uncompressed_file_offset +
+                iter.block.uncompressed_size;
+            if (!w || w->start >= uend) {
+                debug("read: skip %llu", iter.block.number_in_file);
+                continue;
+            }
+            for ( ; w && w->end < uend; w = w->next) ;
+        }
+        debug("read: want %llu", iter.block.number_in_file);
         
         // Get a block to work with
         pipeline_item_t *pi;
@@ -147,7 +164,7 @@ static void read_thread(void) {
 }
 
 static void wanted_free(wanted_t *w) {
-    for (wanted_t *w = gWantedFiles; w; w = w->next) {
+    for (wanted_t *w = gWantedFiles; w; ) {
         wanted_t *tmp = w->next;
         free(w);
         w = tmp;
@@ -184,8 +201,9 @@ static void wanted_files(size_t count, char **specs) {
             }
             if (match && (!*nc || *nc == '/')) { // prefix must be at dir bound
                 wanted_t *w = malloc(sizeof(wanted_t));
-                *w = (wanted_t){ .name = f->name, .offset = f->offset,
-                    .size = f->next->offset - f->offset, .next = NULL };
+                *w = (wanted_t){ .name = f->name, .start = f->offset,
+                    .end = f->next->offset, .next = NULL };
+                w->size = w->end - w->start;
                 if (last) {
                     last->next = w;
                 } else {
