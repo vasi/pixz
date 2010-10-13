@@ -50,6 +50,9 @@ struct file_index_t {
 
 extern file_index_t *gFileIndex, *gLastFile;
 
+// As discovered from footer
+extern lzma_check gCheck;
+
 void decode_index(void);
 
 lzma_vli find_file_index(void **bdatap);

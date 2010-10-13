@@ -13,7 +13,7 @@ typedef struct {
 FILE *gInFile = NULL;
 lzma_stream gStream = LZMA_STREAM_INIT;
 
-static lzma_check gCheck = LZMA_CHECK_NONE;
+lzma_check gCheck = LZMA_CHECK_NONE;
 
 
 void die(const char *fmt, ...) {

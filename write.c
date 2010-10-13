@@ -7,11 +7,6 @@
 
 #pragma mark TYPES
 
-typedef enum {
-    MSG_BLOCK,
-    MSG_STOP,
-} msg_type_t;
-
 typedef struct io_block_t io_block_t;
 struct io_block_t {
     lzma_block block;
@@ -202,7 +197,7 @@ static void read_thread() {
         if (gReadBlock->insize)
             pipeline_split(gReadItem);
         else
-            queue_push(gPipelineStartQ, MSG_BLOCK, gReadItem);
+            queue_push(gPipelineStartQ, PIPELINE_ITEM, gReadItem);
         gReadItem = NULL;
     }
     
@@ -297,7 +292,7 @@ static void encode_thread(size_t thnum) {
     while (true) {
         pipeline_item_t *pi;
         int msg = queue_pop(gPipelineSplitQ, (void**)&pi);
-        if (msg == MSG_STOP)
+        if (msg == PIPELINE_STOP)
             break;
         
         debug("encoder %zu: received %zu", thnum, pi->seq);
