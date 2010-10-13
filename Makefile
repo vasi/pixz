@@ -9,7 +9,8 @@ ifeq ($(CC),gcc)
 	LDFLAGS += -search_paths_first
 endif
 endif
-CFLAGS = $(patsubst %,-I%/include,$(LIBPREFIX)) -g -O0 -std=c99 \
+OPT = -g -O0
+CFLAGS = $(patsubst %,-I%/include,$(LIBPREFIX)) $(OPT) -std=c99 \
 	-Wall -Wno-unknown-pragmas
 
 CC = gcc
