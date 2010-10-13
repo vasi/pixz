@@ -24,7 +24,8 @@ static FILE *gOutFile;
 static lzma_vli gFileIndexOffset = 0;
 static size_t gBlockInSize = 0, gBlockOutSize = 0;
 
-static void set_block_sizes();
+static void set_block_sizes(void);
+static void setup_specs(void);
 static bool want_file(const char *name);
 
 
@@ -45,11 +46,12 @@ int main(int argc, char **argv) {
             default:
                 die("Unknown option");
         }
-    }
+    }    
     gFileSpecs = argv + optind;
     gFileSpecEnd = gFileSpecs + argc - optind;
+    setup_specs();
     
-    // Setup file index
+    // Set up file index
     gFileIndexOffset = read_file_index();
     set_block_sizes();
     for (file_index_t *fi = gFileIndex; fi; fi = fi->next) {
@@ -134,16 +136,29 @@ static void read_thread(void) {
     pipeline_stop();
 }
 
-static bool want_file(const char *name) {
+static void setup_specs(void) {
     for (char **spec = gFileSpecs; spec < gFileSpecEnd; ++spec) {
-        bool found = true;
-        for (const char *a = *spec, *b = name; *a; ++a, ++b) {
+        // Remove trailing slashes
+        char *c = *spec;
+        while (*c++) ;
+        while (--c >= *spec) {
+            if (*c == '/')
+                *c = '\0';
+        }
+    }
+}
+
+static bool want_file(const char *name) {
+    const char *a, *b;
+    for (char **spec = gFileSpecs; spec < gFileSpecEnd; ++spec) {
+        bool diff = false;
+        for (a = *spec, b = name; *a; ++a, ++b) {
             if (!*b || *a != *b) {
-                found = false;
+                diff = true;
                 break;
             }
         }
-        if (found)
+        if (!diff && (!*b || *b == '/'))
             return true;
     }
     return false;
