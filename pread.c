@@ -35,6 +35,7 @@ static void wanted_free(wanted_t *w);
 typedef struct {
     uint8_t *input, *output;
     size_t insize, outsize;
+    size_t uoffset; // uncompressed offset
 } io_block_t;
 
 static void *block_create(void);
@@ -75,13 +76,41 @@ int main(int argc, char **argv) {
     
     gFileIndexOffset = read_file_index();
     wanted_files(argc - optind, argv + optind);
+#if DEBUG
+    for (wanted_t *w = gWantedFiles; w; w = w->next)
+        debug("want: %s", w->name);
+#endif
     set_block_sizes();
     
+    wanted_t *w = gWantedFiles;
     pipeline_create(block_create, block_free, read_thread, decode_thread);
     pipeline_item_t *pi;
     while ((pi = pipeline_merged())) {
         io_block_t *ib = (io_block_t*)(pi->data);
-        fwrite(ib->output, ib->outsize, 1, gOutFile);
+        
+        if (gWantedFiles) {
+            size_t uend = ib->uoffset + ib->outsize;
+            while (w && w->start < uend) {
+                ssize_t off = w->start - ib->uoffset, size = w->size;
+                if (off < 0) {
+                    size += off;
+                    off = 0;
+                }
+                if (off + size > ib->outsize)
+                    size = ib->outsize - off;
+                
+                fwrite(ib->output + off, size, 1, gOutFile);
+                
+                if (w->end >= uend) {
+                    break; // Next block wants this too
+                } else {
+                    w = w->next;
+                }
+            }
+        } else { // want everything
+            fwrite(ib->output, ib->outsize, 1, gOutFile);
+        }
+        
         queue_push(gPipelineStartQ, PIPELINE_ITEM, pi);
     }
     pipeline_destroy();
@@ -224,6 +253,7 @@ static void read_thread(void) {
         if (ib->insize < bsize)
             die("Error reading block contents");
         offset += bsize;
+        ib->uoffset = iter.block.uncompressed_file_offset;
         
         pipeline_split(pi);
     }
