@@ -182,9 +182,11 @@ static void wanted_files(size_t count, char **specs) {
             *c = '\0';
     }
     
+    bool matched[count];  // for each spec, does it match?
+    memset(matched, 0, sizeof(matched));
     wanted_t *last = NULL;
+    // Check each file in order, to see if we want it
     for (file_index_t *f = gFileIndex; f->name; f = f->next) {
-        // Do we want this file?
         for (char **spec = specs; spec < specs + count; ++spec) {
             char *sc, *nc;
             bool match = true;
@@ -194,7 +196,9 @@ static void wanted_files(size_t count, char **specs) {
                     break;
                 }
             }
-            if (match && (!*nc || *nc == '/')) { // prefix must be at dir bound
+            // If spec's a prefix of the file name, it must be a dir name
+            if (match && (!*nc || *nc == '/')) {
+                // Ok, add the file
                 wanted_t *w = malloc(sizeof(wanted_t));
                 *w = (wanted_t){ .name = f->name, .start = f->offset,
                     .end = f->next->offset, .next = NULL };
@@ -205,9 +209,17 @@ static void wanted_files(size_t count, char **specs) {
                     gWantedFiles = w;
                 }
                 last = w;
+                
+                matched[spec - specs] = true;
                 break;
             }
         }
+    }
+    
+    // Make sure each spec matched
+    for (size_t i = 0; i < count; ++i) {
+        if (!matched[i])
+            die("\"%s\" not found in archive", *(specs + i));
     }
 }
 
