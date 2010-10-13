@@ -40,6 +40,7 @@ void *decode_block_start(off_t block_seek) {
     if (fseeko(gInFile, block_seek, SEEK_SET) == -1)
         die("Error seeking to block");
     
+    // Some memory in which to keep the discovered filters safe
     block_wrapper_t *bw = malloc(sizeof(block_wrapper_t));
     bw->block = (lzma_block){ .check = gCheck, .filters = bw->filters,
 	 	.version = 0 };
@@ -94,7 +95,7 @@ void free_file_index(void) {
     gFileIndex = gLastFile = NULL;
 }
 
-bool read_file_index(void) {
+lzma_vli find_file_index(void **bdatap) {
     if (!gIndex)
         decode_index();
         
@@ -112,10 +113,29 @@ bool read_file_index(void) {
     
     // Check if this is really an index
     read_file_index_data();
-    if (xle64dec(gFileIndexBuf + gFIBPos) != PIXZ_INDEX_MAGIC) {
+    lzma_vli ret = iter.block.compressed_file_offset;
+    if (xle64dec(gFileIndexBuf + gFIBPos) != PIXZ_INDEX_MAGIC)
+        ret = 0;
+    
+    if (bdatap && ret) {
+        *bdatap = bdata;
+    } else {
+        // Just looking, don't keep things around
+        if (bdatap)
+            *bdatap = NULL;
+        free(bdata);
+        free(gFileIndexBuf);
         gLastFile = gFileIndex = NULL;
-        return false;
+        lzma_end(&gStream);
     }
+    return ret; 
+}  
+
+bool read_file_index(void) {
+    void *bdata;
+    find_file_index(&bdata);
+    if (!bdata)
+        return false;
     
     while (true) {
         char *name = read_file_index_name();
