@@ -7,7 +7,6 @@
  * - verify file-index matches archive contents
  */
 
-
 #define DEBUG 1
 #if DEBUG
     #define debug(str, ...) fprintf(stderr, str "\n", ##__VA_ARGS__)
@@ -15,6 +14,8 @@
     #define debug(...)
 #endif
 
+
+#pragma mark DECLARE WANTED
 
 typedef struct wanted_t wanted_t;
 struct wanted_t {
@@ -29,6 +30,8 @@ static void wanted_files(size_t count, char **specs);
 static void wanted_free(wanted_t *w);
 
 
+#pragma mark DECLARE PIPELINE
+
 typedef struct {
     uint8_t *input, *output;
     size_t insize, outsize;
@@ -40,7 +43,7 @@ static void read_thread(void);
 static void decode_thread(size_t thnum);
 
 
-static char **gFileSpecs, **gFileSpecEnd;
+#pragma mark DECLARE UTILS
 
 static FILE *gOutFile;
 static lzma_vli gFileIndexOffset = 0;
@@ -48,6 +51,8 @@ static size_t gBlockInSize = 0, gBlockOutSize = 0;
 
 static void set_block_sizes(void);
 
+
+#pragma mark MAIN
 
 int main(int argc, char **argv) {
     gInFile = stdin;
@@ -85,6 +90,9 @@ int main(int argc, char **argv) {
     return 0;
 }
 
+
+#pragma mark BLOCKS
+
 static void *block_create(void) {
     io_block_t *ib = malloc(sizeof(io_block_t));
     ib->input = malloc(gBlockInSize);
@@ -98,6 +106,9 @@ static void block_free(void* data) {
     free(ib->output);
     free(ib);
 }
+
+
+#pragma mark SETUP
 
 static void set_block_sizes() {
     lzma_index_iter iter;
@@ -117,51 +128,6 @@ static void set_block_sizes() {
     }
 }
 
-static void read_thread(void) {
-    off_t offset = ftello(gInFile);
-    wanted_t *w = gWantedFiles;
-    
-    lzma_index_iter iter;
-    lzma_index_iter_init(&iter, gIndex);
-    while (!lzma_index_iter_next(&iter, LZMA_INDEX_ITER_BLOCK)) {
-        // Don't decode the file-index
-        size_t boffset = iter.block.compressed_file_offset,
-            bsize = iter.block.total_size;
-        if (gFileIndexOffset && boffset == gFileIndexOffset)
-            continue;
-        
-        // Do we need this block?
-        if (gWantedFiles) {
-            size_t uend = iter.block.uncompressed_file_offset +
-                iter.block.uncompressed_size;
-            if (!w || w->start >= uend) {
-                debug("read: skip %llu", iter.block.number_in_file);
-                continue;
-            }
-            for ( ; w && w->end < uend; w = w->next) ;
-        }
-        debug("read: want %llu", iter.block.number_in_file);
-        
-        // Get a block to work with
-        pipeline_item_t *pi;
-        queue_pop(gPipelineStartQ, (void**)&pi);
-        io_block_t *ib = (io_block_t*)(pi->data);
-        
-        // Seek if needed, and get the data
-        if (offset != boffset) {
-            fseeko(gInFile, boffset, SEEK_SET);
-            offset = boffset;
-        }        
-        ib->insize = fread(ib->input, 1, bsize, gInFile);
-        if (ib->insize < bsize)
-            die("Error reading block contents");
-        offset += bsize;
-        
-        pipeline_split(pi);
-    }
-    
-    pipeline_stop();
-}
 
 static void wanted_free(wanted_t *w) {
     for (wanted_t *w = gWantedFiles; w; ) {
@@ -214,6 +180,55 @@ static void wanted_files(size_t count, char **specs) {
             }
         }
     }
+}
+
+
+#pragma mark THREADS
+
+static void read_thread(void) {
+    off_t offset = ftello(gInFile);
+    wanted_t *w = gWantedFiles;
+    
+    lzma_index_iter iter;
+    lzma_index_iter_init(&iter, gIndex);
+    while (!lzma_index_iter_next(&iter, LZMA_INDEX_ITER_BLOCK)) {
+        // Don't decode the file-index
+        size_t boffset = iter.block.compressed_file_offset,
+            bsize = iter.block.total_size;
+        if (gFileIndexOffset && boffset == gFileIndexOffset)
+            continue;
+        
+        // Do we need this block?
+        if (gWantedFiles) {
+            size_t uend = iter.block.uncompressed_file_offset +
+                iter.block.uncompressed_size;
+            if (!w || w->start >= uend) {
+                debug("read: skip %llu", iter.block.number_in_file);
+                continue;
+            }
+            for ( ; w && w->end < uend; w = w->next) ;
+        }
+        debug("read: want %llu", iter.block.number_in_file);
+        
+        // Get a block to work with
+        pipeline_item_t *pi;
+        queue_pop(gPipelineStartQ, (void**)&pi);
+        io_block_t *ib = (io_block_t*)(pi->data);
+        
+        // Seek if needed, and get the data
+        if (offset != boffset) {
+            fseeko(gInFile, boffset, SEEK_SET);
+            offset = boffset;
+        }        
+        ib->insize = fread(ib->input, 1, bsize, gInFile);
+        if (ib->insize < bsize)
+            die("Error reading block contents");
+        offset += bsize;
+        
+        pipeline_split(pi);
+    }
+    
+    pipeline_stop();
 }
 
 static void decode_thread(size_t thnum) {
