@@ -3,40 +3,18 @@
 #include <stdarg.h>
 
 
-#pragma mark TYPES
+#pragma mark UTILS
 
 typedef struct {
     lzma_block block;
     lzma_filter filters[LZMA_FILTERS_MAX + 1];
 } block_wrapper_t;
 
-
-#pragma mark GLOBALS
-
 FILE *gInFile = NULL;
 lzma_stream gStream = LZMA_STREAM_INIT;
 
-lzma_index *gIndex = NULL;
-file_index_t *gFileIndex = NULL, *gLastFile = NULL;
-
-
 static lzma_check gCheck = LZMA_CHECK_NONE;
 
-static uint8_t *gFileIndexBuf = NULL;
-static size_t gFIBSize = CHUNKSIZE, gFIBPos = 0;
-static lzma_ret gFIBErr = LZMA_OK;
-static uint8_t gFIBInputBuf[CHUNKSIZE];
-static size_t gMoved = 0;
-
-
-#pragma mark FUNCTION DECLARATIONS
-
-static char *read_file_index_name(void);
-static void read_file_index_make_space(void);
-static void read_file_index_data(void);
-
-
-#pragma mark FUNCTION DEFINITIONS
 
 void die(const char *fmt, ...) {
     va_list args;
@@ -57,6 +35,48 @@ char *xstrdup(const char *s) {
         return NULL;
     return memcpy(r, s, len + 1); 
 }
+
+void *decode_block_start(off_t block_seek) {
+    if (fseeko(gInFile, block_seek, SEEK_SET) == -1)
+        die("Error seeking to block");
+    
+    block_wrapper_t *bw = malloc(sizeof(block_wrapper_t));
+    bw->block = (lzma_block){ .check = gCheck, .filters = bw->filters,
+	 	.version = 0 };
+    
+    int b = fgetc(gInFile);
+    if (b == EOF || b == 0)
+        die("Error reading block size");
+    bw->block.header_size = lzma_block_header_size_decode(b);
+    uint8_t hdrbuf[bw->block.header_size];
+    hdrbuf[0] = (uint8_t)b;
+    if (fread(hdrbuf + 1, bw->block.header_size - 1, 1, gInFile) != 1)
+        die("Error reading block header");
+    if (lzma_block_header_decode(&bw->block, NULL, hdrbuf) != LZMA_OK)
+        die("Error decoding file index block header");
+    
+    if (lzma_block_decoder(&gStream, &bw->block) != LZMA_OK)
+        die("Error initializing file index stream");
+    
+    return bw;
+}
+
+
+#pragma mark INDEX
+
+lzma_index *gIndex = NULL;
+file_index_t *gFileIndex = NULL, *gLastFile = NULL;
+
+static uint8_t *gFileIndexBuf = NULL;
+static size_t gFIBSize = CHUNKSIZE, gFIBPos = 0;
+static lzma_ret gFIBErr = LZMA_OK;
+static uint8_t gFIBInputBuf[CHUNKSIZE];
+static size_t gMoved = 0;
+
+static char *read_file_index_name(void);
+static void read_file_index_make_space(void);
+static void read_file_index_data(void);
+
 
 void dump_file_index(void) {
     for (file_index_t *f = gFileIndex; f != NULL; f = f->next) {
@@ -205,30 +225,8 @@ void decode_index(void) {
     }
 }
 
-void *decode_block_start(off_t block_seek) {
-    if (fseeko(gInFile, block_seek, SEEK_SET) == -1)
-        die("Error seeking to block");
-    
-    block_wrapper_t *bw = malloc(sizeof(block_wrapper_t));
-    bw->block = (lzma_block){ .check = gCheck, .filters = bw->filters,
-	 	.version = 0 };
-    
-    int b = fgetc(gInFile);
-    if (b == EOF || b == 0)
-        die("Error reading block size");
-    bw->block.header_size = lzma_block_header_size_decode(b);
-    uint8_t hdrbuf[bw->block.header_size];
-    hdrbuf[0] = (uint8_t)b;
-    if (fread(hdrbuf + 1, bw->block.header_size - 1, 1, gInFile) != 1)
-        die("Error reading block header");
-    if (lzma_block_header_decode(&bw->block, NULL, hdrbuf) != LZMA_OK)
-        die("Error decoding file index block header");
-    
-    if (lzma_block_decoder(&gStream, &bw->block) != LZMA_OK)
-        die("Error initializing file index stream");
-    
-    return bw;
-}
+
+#pragma mark QUEUE
 
 queue_t *queue_new(queue_free_t freer) {
     queue_t *q = malloc(sizeof(queue_t));
@@ -287,4 +285,139 @@ int queue_pop(queue_t *q, void **datap) {
     
     pthread_mutex_unlock(&q->mutex);
     return type;
+}
+
+
+#pragma mark PIPELINE
+
+queue_t *gPipelineStartQ = NULL,
+    *gPipelineSplitQ = NULL,
+    *gPipelineMergeQ = NULL;
+
+pipeline_data_free_t gPLFreer = NULL;
+pipeline_split_t gPLSplit = NULL;
+pipeline_process_t gPLProcess = NULL;
+
+size_t gPLProcessCount = 0;
+pthread_t *gPLProcessThreads = NULL;
+pthread_t gPLSplitThread;
+
+ssize_t gPLSplitSeq = 0;
+ssize_t gPLMergeSeq = 0;
+pipeline_item_t *gPLMergedItems = NULL;
+
+static void pipeline_qfree(int type, void *p);
+static void *pipeline_thread_split(void *);
+static void *pipeline_thread_process(void *arg);
+
+void pipeline_create(
+        pipeline_data_create_t create,
+        pipeline_data_free_t destroy,
+        pipeline_split_t split,
+        pipeline_process_t process) {
+    gPLFreer = destroy;
+    gPLSplit = split;
+    gPLProcess = process;
+    
+    gPipelineStartQ = queue_new(pipeline_qfree);
+    gPipelineSplitQ = queue_new(pipeline_qfree);
+    gPipelineMergeQ = queue_new(pipeline_qfree);
+    
+    gPLSplitSeq = 0;
+    gPLMergeSeq = 0;
+    gPLMergedItems = NULL;
+    
+    gPLProcessCount = num_threads();
+    gPLProcessThreads = malloc(gPLProcessCount * sizeof(pthread_t));
+    for (size_t i = 0; i < (int)(gPLProcessCount * 1.5 + 2); ++i) {
+        // create blocks, including a margin of error
+        pipeline_item_t *item = malloc(sizeof(pipeline_item_t));
+        item->data = create();
+        // seq and next are garbage
+        queue_push(gPipelineStartQ, PIPELINE_ITEM, item);
+    }
+    if (pthread_create(&gPLSplitThread, NULL, &pipeline_thread_split, NULL))
+        die("Error creating read thread");
+    for (size_t i = 0; i < gPLProcessCount; ++i) {
+        if (pthread_create(&gPLProcessThreads[i], NULL,
+                &pipeline_thread_process, (void*)(uintptr_t)i))
+            die("Error creating encode thread");
+    }
+}
+
+static void pipeline_qfree(int type, void *p) {
+    switch (type) {
+        case PIPELINE_ITEM: {
+            pipeline_item_t *item = (pipeline_item_t*)p;
+            gPLFreer(item->data);
+            free(item);
+            break;
+        }
+        case PIPELINE_STOP:
+            break;
+        default:
+            die("Unknown msg type %d", type);
+    }
+}
+
+static void *pipeline_thread_split(void *ignore) {
+    gPLSplit();
+    return NULL;
+}
+
+static void *pipeline_thread_process(void *arg) {
+    size_t thnum = (uintptr_t)arg;
+    gPLProcess(thnum);
+    return NULL;
+}
+
+void pipeline_stop(void) {
+    // ask the other threads to stop
+    for (size_t i = 0; i < gPLProcessCount; ++i)
+        queue_push(gPipelineSplitQ, PIPELINE_STOP, NULL);
+    for (size_t i = 0; i < gPLProcessCount; ++i) {
+        if (pthread_join(gPLProcessThreads[i], NULL))
+            die("Error joining processing thread");
+    }
+    queue_push(gPipelineMergeQ, PIPELINE_STOP, NULL);
+}
+
+void pipeline_destroy(void) {
+    if (pthread_join(gPLSplitThread, NULL))
+        die("Error joining splitter thread");
+    
+    queue_free(gPipelineStartQ);
+    queue_free(gPipelineSplitQ);
+    queue_free(gPipelineMergeQ);
+    free(gPLProcessThreads);
+}
+
+void pipeline_split(pipeline_item_t *item) {
+    item->seq = gPLSplitSeq++;
+    item->next = NULL;
+    queue_push(gPipelineSplitQ, PIPELINE_ITEM, item);
+}
+
+pipeline_item_t *pipeline_merged() {
+    pipeline_item_t *item;
+    while (!gPLMergedItems || gPLMergedItems->seq != gPLMergeSeq) {
+        // We don't have the next item, wait for a new one
+        pipeline_tag_t tag = queue_pop(gPipelineMergeQ, (void**)&item);
+        if (tag == PIPELINE_STOP)
+            return NULL; // Done processing items
+        
+        // Insert the item into the queue
+        pipeline_item_t **prev = &gPLMergedItems;
+        while (*prev && (*prev)->seq < item->seq) {
+            prev = &(*prev)->next;
+        }
+        item->next = *prev;
+        *prev = item;
+    }
+    
+    // Got the next item
+    item = gPLMergedItems;
+    gPLMergedItems = item->next;
+    ++gPLMergeSeq;
+    return item;
 }

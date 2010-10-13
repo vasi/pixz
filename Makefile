@@ -17,23 +17,15 @@ COMPILE = $(CC) $(CFLAGS) -c -o
 LD = $(CC) $(LDFLAGS) -o
 
 PROGS = write read list
+COMMON = common.o endian.o cpu.o
 
 all: $(PROGS)
 
 %.o: %.c pixz.h
 	$(COMPILE) $@ $<
 
-list: list.o common.o endian.o
-	$(LD) $@ $^ -llzma
-
-write: write.o common.o endian.o cpu.o
-	$(LD) $@ $^ -larchive -llzma
-
-read: read.o common.o endian.o
-	$(LD) $@ $^ -llzma
-
-pread: pread.o common.o endian.o
-	$(LD) $@ $^ -llzma
+$(PROGS): %: %.o $(COMMON)
+	$(LD) $@ $^ -llzma -larchive
 
 clean:
 	rm -f *.o $(PROGS)
