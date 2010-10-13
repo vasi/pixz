@@ -78,9 +78,9 @@ static void read_file_index_make_space(void);
 static void read_file_index_data(void);
 
 
-void dump_file_index(void) {
+void dump_file_index(FILE *out) {
     for (file_index_t *f = gFileIndex; f != NULL; f = f->next) {
-        fprintf(stderr, "%10"PRIuMAX" %s\n", (uintmax_t)f->offset, f->name ? f->name : "");
+        fprintf(out, "%10"PRIuMAX" %s\n", (uintmax_t)f->offset, f->name ? f->name : "");
     }    
 }
 
@@ -94,7 +94,10 @@ void free_file_index(void) {
     gFileIndex = gLastFile = NULL;
 }
 
-bool read_file_index(void) {    
+bool read_file_index(void) {
+    if (!gIndex)
+        decode_index();
+        
     // find the last block
     lzma_index_iter iter;
 	lzma_index_iter_init(&iter, gIndex);

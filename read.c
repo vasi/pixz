@@ -16,7 +16,6 @@ int main(int argc, char **argv) {
         die("Can't open input file");
     char *target = argv[2];
     
-    decode_index();
     if (!read_file_index())
         die("File has no index");
     

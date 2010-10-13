@@ -53,7 +53,7 @@ extern file_index_t *gFileIndex, *gLastFile;
 void decode_index(void);
 
 bool read_file_index(void);
-void dump_file_index(void);
+void dump_file_index(FILE *out);
 void free_file_index(void);
 
 
