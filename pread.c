@@ -18,11 +18,14 @@ static void read_thread(void);
 static void decode_thread(size_t thnum);
 
 
+static char **gFileSpecs, **gFileSpecEnd;
+
 static FILE *gOutFile;
 static lzma_vli gFileIndexOffset = 0;
 static size_t gBlockInSize = 0, gBlockOutSize = 0;
 
 static void set_block_sizes();
+static bool want_file(const char *name);
 
 
 int main(int argc, char **argv) {
@@ -43,13 +46,19 @@ int main(int argc, char **argv) {
                 die("Unknown option");
         }
     }
-    argc -= optind - 1;
-    argv += optind - 1;
-      
+    gFileSpecs = argv + optind;
+    gFileSpecEnd = gFileSpecs + argc - optind;
     
-    // Find block sizes
-    gFileIndexOffset = find_file_index(NULL);
+    // Setup file index
+    gFileIndexOffset = read_file_index();
     set_block_sizes();
+    for (file_index_t *fi = gFileIndex; fi; fi = fi->next) {
+        if (!fi->name)
+            continue;
+        if (want_file(fi->name))
+            printf("want: %s\n", fi->name);
+    }
+    exit(0);
     
     pipeline_create(block_create, block_free, read_thread, decode_thread);
     pipeline_item_t *pi;
@@ -125,6 +134,21 @@ static void read_thread(void) {
     pipeline_stop();
 }
 
+static bool want_file(const char *name) {
+    for (char **spec = gFileSpecs; spec < gFileSpecEnd; ++spec) {
+        bool found = true;
+        for (const char *a = *spec, *b = name; *a; ++a, ++b) {
+            if (!*b || *a != *b) {
+                found = false;
+                break;
+            }
+        }
+        if (found)
+            return true;
+    }
+    return false;
+}
+
 static void decode_thread(size_t thnum) {
     lzma_stream stream = LZMA_STREAM_INIT;
     lzma_filter filters[LZMA_FILTERS_MAX + 1];
@@ -159,4 +183,3 @@ static void decode_thread(size_t thnum) {
     }
     lzma_end(&stream);
 }
-

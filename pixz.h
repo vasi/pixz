@@ -56,7 +56,7 @@ extern lzma_check gCheck;
 void decode_index(void);
 
 lzma_vli find_file_index(void **bdatap);
-bool read_file_index(void);
+lzma_vli read_file_index(void);
 void dump_file_index(FILE *out);
 void free_file_index(void);
 

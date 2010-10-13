@@ -116,6 +116,7 @@ lzma_vli find_file_index(void **bdatap) {
     lzma_vli ret = iter.block.compressed_file_offset;
     if (xle64dec(gFileIndexBuf + gFIBPos) != PIXZ_INDEX_MAGIC)
         ret = 0;
+    gFIBPos += sizeof(uint64_t);
     
     if (bdatap && ret) {
         *bdatap = bdata;
@@ -131,11 +132,11 @@ lzma_vli find_file_index(void **bdatap) {
     return ret; 
 }  
 
-bool read_file_index(void) {
+lzma_vli read_file_index(void) {
     void *bdata;
-    find_file_index(&bdata);
+    lzma_vli offset = find_file_index(&bdata);
     if (!bdata)
-        return false;
+        return 0;
     
     while (true) {
         char *name = read_file_index_name();
@@ -158,7 +159,7 @@ bool read_file_index(void) {
     lzma_end(&gStream);
     free(bdata);
     
-    return true;
+    return offset;
 }
 
 static char *read_file_index_name(void) {
