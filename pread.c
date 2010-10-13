@@ -3,7 +3,6 @@
 #include <getopt.h>
 
 /* TODO
- * - restrict to certain files
  * - verify file-index matches archive contents
  */
 
