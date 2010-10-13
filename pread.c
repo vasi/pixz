@@ -7,6 +7,20 @@
  * - verify file-index matches archive contents
  */
 
+typedef struct wanted_t wanted_t;
+struct wanted_t {
+    wanted_t *next;
+    char *name;
+    size_t offset;
+    size_t size;
+};
+
+static wanted_t *gWantedFiles = NULL;
+
+static void wanted_files(size_t count, char **specs);
+static void wanted_free(wanted_t *w);
+
+
 typedef struct {
     uint8_t *input, *output;
     size_t insize, outsize;
@@ -25,8 +39,6 @@ static lzma_vli gFileIndexOffset = 0;
 static size_t gBlockInSize = 0, gBlockOutSize = 0;
 
 static void set_block_sizes(void);
-static void setup_specs(void);
-static bool want_file(const char *name);
 
 
 int main(int argc, char **argv) {
@@ -46,22 +58,16 @@ int main(int argc, char **argv) {
             default:
                 die("Unknown option");
         }
-    }    
-    gFileSpecs = argv + optind;
-    gFileSpecEnd = gFileSpecs + argc - optind;
-    setup_specs();
+    }
     
     // Set up file index
     gFileIndexOffset = read_file_index();
-    set_block_sizes();
-    for (file_index_t *fi = gFileIndex; fi; fi = fi->next) {
-        if (!fi->name)
-            continue;
-        if (want_file(fi->name))
-            printf("want: %s\n", fi->name);
-    }
+    wanted_files(argc - optind, argv + optind);
+    for (wanted_t *w = gWantedFiles; w; w = w->next)
+        printf("want: %s\n", w->name);
     exit(0);
     
+    set_block_sizes();
     pipeline_create(block_create, block_free, read_thread, decode_thread);
     pipeline_item_t *pi;
     while ((pi = pipeline_merged())) {
@@ -71,6 +77,7 @@ int main(int argc, char **argv) {
     }
     pipeline_destroy();
     
+    wanted_free(gWantedFiles);
     return 0;
 }
 
@@ -112,23 +119,26 @@ static void read_thread(void) {
     lzma_index_iter iter;
     lzma_index_iter_init(&iter, gIndex);
     while (!lzma_index_iter_next(&iter, LZMA_INDEX_ITER_BLOCK)) {
-        size_t boffset = iter.block.compressed_file_offset;
-        if (boffset == gFileIndexOffset)
+        // Don't decode the file-index
+        size_t boffset = iter.block.compressed_file_offset,
+            bsize = iter.block.total_size;
+        if (gFileIndexOffset && boffset == gFileIndexOffset)
             continue;
         
+        // Get a block to work with
         pipeline_item_t *pi;
         queue_pop(gPipelineStartQ, (void**)&pi);
         io_block_t *ib = (io_block_t*)(pi->data);
         
+        // Seek if needed, and get the data
         if (offset != boffset) {
             fseeko(gInFile, boffset, SEEK_SET);
             offset = boffset;
-        }
-        
-        size_t bsize = iter.block.total_size;
+        }        
         ib->insize = fread(ib->input, 1, bsize, gInFile);
         if (ib->insize < bsize)
             die("Error reading block contents");
+        offset += bsize;
         
         pipeline_split(pi);
     }
@@ -136,32 +146,56 @@ static void read_thread(void) {
     pipeline_stop();
 }
 
-static void setup_specs(void) {
-    for (char **spec = gFileSpecs; spec < gFileSpecEnd; ++spec) {
-        // Remove trailing slashes
-        char *c = *spec;
-        while (*c++) ;
-        while (--c >= *spec) {
-            if (*c == '/')
-                *c = '\0';
-        }
+static void wanted_free(wanted_t *w) {
+    for (wanted_t *w = gWantedFiles; w; w = w->next) {
+        wanted_t *tmp = w->next;
+        free(w);
+        w = tmp;
     }
 }
 
-static bool want_file(const char *name) {
-    const char *a, *b;
-    for (char **spec = gFileSpecs; spec < gFileSpecEnd; ++spec) {
-        bool diff = false;
-        for (a = *spec, b = name; *a; ++a, ++b) {
-            if (!*b || *a != *b) {
-                diff = true;
+static void wanted_files(size_t count, char **specs) {
+    if (count == 0) {
+        gWantedFiles = NULL;
+        return;
+    }
+    if (!gFileIndexOffset)
+        die("Can't filter non-tarball");
+    
+    // Remove trailing slashes from specs
+    for (char **spec = specs; spec < specs + count; ++spec) {
+        char *c = *spec;
+        while (*c++) ; // forward to end
+        while (--c >= *spec && *c == '/')
+            *c = '\0';
+    }
+    
+    wanted_t *last = NULL;
+    for (file_index_t *f = gFileIndex; f->name; f = f->next) {
+        // Do we want this file?
+        for (char **spec = specs; spec < specs + count; ++spec) {
+            char *sc, *nc;
+            bool match = true;
+            for (sc = *spec, nc = f->name; *sc; ++sc, ++nc) {
+                if (!*nc || *sc != *nc) { // spec must be equal or prefix
+                    match = false;
+                    break;
+                }
+            }
+            if (match && (!*nc || *nc == '/')) { // prefix must be at dir bound
+                wanted_t *w = malloc(sizeof(wanted_t));
+                *w = (wanted_t){ .name = f->name, .offset = f->offset,
+                    .size = f->next->offset - f->offset, .next = NULL };
+                if (last) {
+                    last->next = w;
+                } else {
+                    gWantedFiles = w;
+                }
+                last = w;
                 break;
             }
         }
-        if (!diff && (!*b || *b == '/'))
-            return true;
     }
-    return false;
 }
 
 static void decode_thread(size_t thnum) {
