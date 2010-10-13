@@ -1,6 +1,7 @@
 list
 write
 read
+pread
 
 *.o
 
