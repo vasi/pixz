@@ -1,5 +1,7 @@
 #include "pixz.h"
 
+#include <getopt.h>
+
 /* TODO
  * - restrict to certain files
  * - verify file-index matches archive contents
@@ -16,7 +18,7 @@ static void read_thread(void);
 static void decode_thread(size_t thnum);
 
 
-static FILE *gOutFile = NULL;
+static FILE *gOutFile;
 static lzma_vli gFileIndexOffset = 0;
 static size_t gBlockInSize = 0, gBlockOutSize = 0;
 
@@ -24,18 +26,26 @@ static void set_block_sizes();
 
 
 int main(int argc, char **argv) {
-    char *progname = argv[0];
-    if (argc == 1) {
-        gInFile = stdin;
-        gOutFile = stdout;
-    } else if (argc == 3) {
-        if (!(gInFile = fopen(argv[1], "r")))
-            die("Can't open input file");
-        if (!(gOutFile = fopen(argv[2], "w")))
-            die("Can't open output file");
-    } else {
-        die("Usage: %s [-t] [INPUT OUTPUT]", progname);
+    gInFile = stdin;
+    gOutFile = stdout;
+    int ch;
+    while ((ch = getopt(argc, argv, "i:o:")) != -1) {
+        switch (ch) {
+            case 'i':
+                if (!(gInFile = fopen(optarg, "r")))
+                    die ("Can't open input file");
+                break;
+            case 'o':
+                if (!(gOutFile = fopen(optarg, "w")))
+                    die ("Can't open output file");
+                break;
+            default:
+                die("Unknown option");
+        }
     }
+    argc -= optind - 1;
+    argv += optind - 1;
+      
     
     // Find block sizes
     gFileIndexOffset = find_file_index(NULL);
