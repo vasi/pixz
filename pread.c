@@ -96,7 +96,6 @@ static ssize_t tar_read(struct archive *ar, void *ref, const void **bufp) {
         return 0;
     
     io_block_t *ib = (io_block_t*)(gArItem->data);
-    fprintf(stderr, "tar wanted: %s\n", gArWanted->name);
     ssize_t off = gArWanted->start - ib->uoffset, size = gArWanted->size;
     if (off < 0) {
         size += off;
@@ -109,7 +108,6 @@ static ssize_t tar_read(struct archive *ar, void *ref, const void **bufp) {
         gArWanted = gArWanted->next;
     }
     
-    fprintf(stderr, "tar read off = %zd, size = %zd\n", off, size);
     gArLastOffset = off;
     gArLastSize = size;
     *bufp = ib->output + off;
@@ -119,8 +117,9 @@ static ssize_t tar_read(struct archive *ar, void *ref, const void **bufp) {
 int main(int argc, char **argv) {
     gInFile = stdin;
     gOutFile = stdout;
+    bool verify = true;
     int ch;
-    while ((ch = getopt(argc, argv, "i:o:")) != -1) {
+    while ((ch = getopt(argc, argv, "i:o:v")) != -1) {
         switch (ch) {
             case 'i':
                 if (!(gInFile = fopen(optarg, "r")))
@@ -130,11 +129,13 @@ int main(int argc, char **argv) {
                 if (!(gOutFile = fopen(optarg, "w")))
                     die ("Can't open output file");
                 break;
+            case 'v': verify = false; break;
             default:
                 die("Unknown option");
         }
     }
     
+    // TODO: ONly read index if necessary?
     gFileIndexOffset = read_file_index();
     wanted_files(argc - optind, argv + optind);
 #if DEBUG
@@ -145,7 +146,7 @@ int main(int argc, char **argv) {
     
     gArWanted = gWantedFiles;
     pipeline_create(block_create, block_free, read_thread, decode_thread);
-    if (gFileIndexOffset) {
+    if (verify && gFileIndexOffset) {
         struct archive *ar = archive_read_new();
         archive_read_support_compression_none(ar);
         archive_read_support_format_tar(ar);
@@ -235,12 +236,12 @@ static bool spec_match(char *spec, char *name) {
 }
 
 static void wanted_files(size_t count, char **specs) {
-    if (count == 0) {
+    if (!gFileIndexOffset) {
+        if (count)
+            die("Can't filter non-tarball");
         gWantedFiles = NULL;
         return;
     }
-    if (!gFileIndexOffset)
-        die("Can't filter non-tarball");
     
     // Remove trailing slashes from specs
     for (char **spec = specs; spec < specs + count; ++spec) {
@@ -253,24 +254,29 @@ static void wanted_files(size_t count, char **specs) {
     bool matched[count];  // for each spec, does it match?
     memset(matched, 0, sizeof(matched));
     wanted_t *last = NULL;
+    
     // Check each file in order, to see if we want it
     for (file_index_t *f = gFileIndex; f->name; f = f->next) {
+        bool match = !count;
         for (char **spec = specs; spec < specs + count; ++spec) {
             if (spec_match(*spec, f->name)) {
-                wanted_t *w = malloc(sizeof(wanted_t));
-                *w = (wanted_t){ .name = f->name, .start = f->offset,
-                    .end = f->next->offset, .next = NULL };
-                w->size = w->end - w->start;
-                if (last) {
-                    last->next = w;
-                } else {
-                    gWantedFiles = w;
-                }
-                last = w;
-                
+                match = true;
                 matched[spec - specs] = true;
                 break;
             }
+        }
+        
+        if (match) {
+            wanted_t *w = malloc(sizeof(wanted_t));
+            *w = (wanted_t){ .name = f->name, .start = f->offset,
+                .end = f->next->offset, .next = NULL };
+            w->size = w->end - w->start;
+            if (last) {
+                last->next = w;
+            } else {
+                gWantedFiles = w;
+            }
+            last = w;
         }
     }
     
