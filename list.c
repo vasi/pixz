@@ -1,7 +1,5 @@
 #include "pixz.h"
 
-#include <getopt.h>
-
 #pragma mark FUNCTION DEFINITIONS
 
 void pixz_list(bool tar) {

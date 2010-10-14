@@ -1,4 +1,5 @@
 #include "pixz.h"
+#include <unistd.h>
 #include <getopt.h>
 
 typedef enum {

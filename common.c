@@ -375,13 +375,13 @@ void pipeline_create(
         // seq and next are garbage
         queue_push(gPipelineStartQ, PIPELINE_ITEM, item);
     }
-    if (pthread_create(&gPLSplitThread, NULL, &pipeline_thread_split, NULL))
-        die("Error creating read thread");
     for (size_t i = 0; i < gPLProcessCount; ++i) {
         if (pthread_create(&gPLProcessThreads[i], NULL,
                 &pipeline_thread_process, (void*)(uintptr_t)i))
             die("Error creating encode thread");
     }
+    if (pthread_create(&gPLSplitThread, NULL, &pipeline_thread_split, NULL))
+        die("Error creating read thread");
 }
 
 static void pipeline_qfree(int type, void *p) {

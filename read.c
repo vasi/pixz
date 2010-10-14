@@ -3,8 +3,6 @@
 #include <archive.h>
 #include <archive_entry.h>
 
-#include <getopt.h>
-
 
 #pragma mark DECLARE WANTED
 
