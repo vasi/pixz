@@ -5,11 +5,6 @@
 
 #include <getopt.h>
 
-/* TODO
- * - Replace 'read' with 'pread'
- * - Make a filter for tar
- */
-
 #define DEBUG 0
 #if DEBUG
     #define debug(str, ...) fprintf(stderr, str "\n", ##__VA_ARGS__)
@@ -60,15 +55,16 @@ static bool gArNextItem = false;
 static int tar_ok(struct archive *ar, void *ref);
 static ssize_t tar_read(struct archive *ar, void *ref, const void **bufp);
 static bool tar_next_block(void);
+static void tar_write_last(void);
 
 
 #pragma mark DECLARE UTILS
 
-static FILE *gOutFile;
 static lzma_vli gFileIndexOffset = 0;
 static size_t gBlockInSize = 0, gBlockOutSize = 0;
 
 static void set_block_sizes(void);
+static void pixz_read(bool verify, size_t nspecs, char **specs);
 
 
 #pragma mark MAIN
@@ -93,16 +89,21 @@ int main(int argc, char **argv) {
                 die("Unknown option");
         }
     }
+    pixz_read(verify, argc - optind, argv + optind);
+    return 0;
+}
     
+static void pixz_read(bool verify, size_t nspecs, char **specs) {
     decode_index();
     if (verify)
         gFileIndexOffset = read_file_index(0);
-    wanted_files(argc - optind, argv + optind);
+    wanted_files(nspecs, specs);
+    set_block_sizes();
+
 #if DEBUG
     for (wanted_t *w = gWantedFiles; w; w = w->next)
         debug("want: %s", w->name);
 #endif
-    set_block_sizes();
     
     pipeline_create(block_create, block_free, read_thread, decode_thread);
     if (verify && gFileIndexOffset) {
@@ -149,7 +150,7 @@ int main(int argc, char **argv) {
         }
         if (w && w->name)
             die("File %s missing in archive", w->name);
-        tar_read(NULL, NULL, NULL); // write whatever's left
+        tar_write_last(); // write whatever's left
     } else {
         pipeline_item_t *pi;
         while ((pi = pipeline_merged())) {
@@ -161,7 +162,6 @@ int main(int argc, char **argv) {
     
     pipeline_destroy();
     wanted_free(gWantedFiles);
-    return 0;
 }
 
 
@@ -382,13 +382,17 @@ static bool tar_next_block(void) {
     return gArItem;
 }
 
-static ssize_t tar_read(struct archive *ar, void *ref, const void **bufp) {
-    // If we got here, the last bit of archive is ok to write
+static void tar_write_last(void) {
     if (gArItem) {
         io_block_t *ib = (io_block_t*)(gArItem->data);
         fwrite(ib->output + gArLastOffset, gArLastSize, 1, gOutFile);
         gArLastSize = 0;
     }
+}
+
+static ssize_t tar_read(struct archive *ar, void *ref, const void **bufp) {
+    // If we got here, the last bit of archive is ok to write
+    tar_write_last();
         
     // Write the first wanted file
     if (!tar_next_block())

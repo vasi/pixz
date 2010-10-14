@@ -23,7 +23,7 @@
 
 #pragma mark UTILS
 
-FILE *gInFile;
+FILE *gInFile, *gOutFile;
 lzma_stream gStream;
 
 extern lzma_index *gIndex;

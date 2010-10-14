@@ -34,7 +34,6 @@ static size_t gReadItemCount = 0;
 
 static lzma_filter gFilters[LZMA_FILTERS_MAX + 1];
 
-static FILE *gOutFile = NULL;
 static uint8_t gFileIndexBuf[CHUNKSIZE];
 static size_t gFileIndexBufPos = 0;
 
