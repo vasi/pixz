@@ -7,7 +7,8 @@
 
 /* TODO
  * - Check sizes of files vs index
- * - Test against "normal" xz, txz files
+ * - Replace 'read' with 'pread'
+ * - Make a filter for tar
  */
 
 #define DEBUG 0
