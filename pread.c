@@ -88,31 +88,28 @@ static ssize_t tar_read(struct archive *ar, void *ref, const void **bufp) {
         io_block_t *ib = (io_block_t*)(gArItem->data);
         fwrite(ib->output + gArLastOffset, gArLastSize, 1, gOutFile);
     }
-        
+    
+    // TODO: don't assume we have wanted files!!!
+    
+    // Write the first wanted file
     if (!tar_next_block())
         return 0;
     
     io_block_t *ib = (io_block_t*)(gArItem->data);
-    size_t off, size;
-    if (!gWantedFiles) {
+    fprintf(stderr, "tar wanted: %s\n", gArWanted->name);
+    ssize_t off = gArWanted->start - ib->uoffset, size = gArWanted->size;
+    if (off < 0) {
+        size += off;
         off = 0;
-        size = ib->outsize;
+    }
+    if (off + size > ib->outsize) {
+        size = ib->outsize - off;
+        gArNextItem = true; // force the end of this block
     } else {
-        // Write the first wanted file
-        fprintf(stderr, "tar wanted: %s\n", gArWanted->name);
-        ssize_t off = gArWanted->start - ib->uoffset, size = gArWanted->size;
-        if (off < 0) {
-            size += off;
-            off = 0;
-        }
-        if (off + size > ib->outsize) {
-            size = ib->outsize - off;
-            gArNextItem = true; // force the end of this block
-        } else {
-            gArWanted = gArWanted->next;
-        }
+        gArWanted = gArWanted->next;
     }
     
+    fprintf(stderr, "tar read off = %zd, size = %zd\n", off, size);
     gArLastOffset = off;
     gArLastSize = size;
     *bufp = ib->output + off;
