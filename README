@@ -9,63 +9,63 @@ The existing XZ Utils ( http://tukaani.org/xz/ ) provide great compression in th
 
 With pixz, both these problems are solved. The most useful commands:
 
-$ pixz foo.tar foo.tpxz			# Compress and index a tarball, multi-core
-$ pixz -l foo.tpxz				# Very quickly list the contents of the compressed tarball
-$ pixz -x dir/file < foo.tpxz | tar x	# Very quickly extract a file, multi-core.
-										# Also verifies that contents match index.
+$ pixz foo.tar foo.tpxz         # Compress and index a tarball, multi-core
+$ pixz -l foo.tpxz              # Very quickly list the contents of the compressed tarball
+$ pixz -x dir/file < foo.tpxz | tar x   # Very quickly extract a file, multi-core.
+                                        # Also verifies that contents match index.
 
-$ pixz bar bar.xz			# Compress a non-tarball, multi-core
-$ pixz -d bar.xz bar		# Decompress it, multi-core
+$ pixz bar bar.xz           # Compress a non-tarball, multi-core
+$ pixz -d bar.xz bar        # Decompress it, multi-core
 
 
 Specifying input and output:
 
-$ pixz < foo.tar > foo.tpxz		# Same as 'pixz foo.tar foo.tpxz'
-$ pixz -i foo.tar -o foo.tpxz	# Ditto. These both work for -x, -d and -l too, eg:
+$ pixz < foo.tar > foo.tpxz     # Same as 'pixz foo.tar foo.tpxz'
+$ pixz -i foo.tar -o foo.tpxz   # Ditto. These both work for -x, -d and -l too, eg:
 
 $ pixz -x -i foo.tpxz -o foo.tar file1 file2 ... # Extract the files from foo.tpxz into foo.tar
 
-$ pixz foo.tar					# Compress it to foo.tpxz, removing the original
-$ pixz -d foo.tpxz				# Extract it to foo.tar, removing the original
+$ pixz foo.tar                  # Compress it to foo.tpxz, removing the original
+$ pixz -d foo.tpxz              # Extract it to foo.tar, removing the original
 
 
 Other flags:
 
-$ pixz -1 foo.tar			# Faster, worse compression
-$ pixz -9 foo.tar			# Better, slower compression 
+$ pixz -1 foo.tar           # Faster, worse compression
+$ pixz -9 foo.tar           # Better, slower compression 
 
-$ pixz -t foo.tar			# Compress but don't treat it as a tarball (don't index it)
-$ pixz -d -t foo.tpxz		# Decompress foo, don't check that contents match index
-$ pixz -l -t foo.tpxz		# List the xz blocks instead of files
+$ pixz -t foo.tar           # Compress but don't treat it as a tarball (don't index it)
+$ pixz -d -t foo.tpxz       # Decompress foo, don't check that contents match index
+$ pixz -l -t foo.tpxz       # List the xz blocks instead of files
 
 
 Compare to:
-	plzip
-		* About equally complex, efficient
-		* lzip format seems less-used
-		* Version 1 is theoretically indexable...I think
-	ChopZip
-		* Python, much simpler
-		* More flexible, supports arbitrary compression programs
-		* Uses streams instead of blocks, not indexable
-		* Splits input and then combines output, much higher disk usage 
-	pxz
-		* Simpler code
-		* Uses OpenMP instead of pthreads
-		* Uses streams instead of blocks, not indexable
-		* Uses temp files and doesn't combine them until the whole file is compressed, high disk/memory usage
+    plzip
+        * About equally complex, efficient
+        * lzip format seems less-used
+        * Version 1 is theoretically indexable...I think
+    ChopZip
+        * Python, much simpler
+        * More flexible, supports arbitrary compression programs
+        * Uses streams instead of blocks, not indexable
+        * Splits input and then combines output, much higher disk usage 
+    pxz
+        * Simpler code
+        * Uses OpenMP instead of pthreads
+        * Uses streams instead of blocks, not indexable
+        * Uses temp files and doesn't combine them until the whole file is compressed, high disk/memory usage
 
 Comparable tools for other compression algorithms:
-	pbzip2
-		* Not indexable
-		* Appears slow
-		* bzip2 algorithm is non-ideal
-	pigz
-		* Not indexable
-	dictzip
-		* Not parallel
+    pbzip2
+        * Not indexable
+        * Appears slow
+        * bzip2 algorithm is non-ideal
+    pigz
+        * Not indexable
+    dictzip
+        * Not parallel
 
 
 Requirements:
-	* libarchive 2.8 or later
-	* liblzma 4.999.9-beta-212 or later (from the xz distribution)
+    * libarchive 2.8 or later
+    * liblzma 4.999.9-beta-212 or later (from the xz distribution)
