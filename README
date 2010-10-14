@@ -11,8 +11,11 @@ With pixz, both these problems are solved. The most useful commands:
 
 $ pixz foo.tar foo.tpxz         # Compress and index a tarball, multi-core
 $ pixz -l foo.tpxz              # Very quickly list the contents of the compressed tarball
+$ pixz -d foo.tpxz foo.tar      # Decompress it, multi-core
 $ pixz -x dir/file < foo.tpxz | tar x   # Very quickly extract a file, multi-core.
                                         # Also verifies that contents match index.
+
+$ tar -Ipixz -cf foo.tpxz foo           # Create a tarball using pixz for multi-core compression
 
 $ pixz bar bar.xz           # Compress a non-tarball, multi-core
 $ pixz -d bar.xz bar        # Decompress it, multi-core
