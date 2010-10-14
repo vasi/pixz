@@ -95,17 +95,24 @@ static ssize_t tar_read(struct archive *ar, void *ref, const void **bufp) {
     if (!tar_next_block())
         return 0;
     
+    size_t off, size;
     io_block_t *ib = (io_block_t*)(gArItem->data);
-    ssize_t off = gArWanted->start - ib->uoffset, size = gArWanted->size;
-    if (off < 0) {
-        size += off;
-        off = 0;
-    }
-    if (off + size > ib->outsize) {
-        size = ib->outsize - off;
-        gArNextItem = true; // force the end of this block
+    if (gWantedFiles) {
+        off = gArWanted->start - ib->uoffset;
+        size = gArWanted->size;
+        if (off < 0) {
+            size += off;
+            off = 0;
+        }
+        if (off + size > ib->outsize) {
+            size = ib->outsize - off;
+            gArNextItem = true; // force the end of this block
+        } else {
+            gArWanted = gArWanted->next;
+        }
     } else {
-        gArWanted = gArWanted->next;
+        off = 0;
+        size = ib->outsize;
     }
     
     gArLastOffset = off;
