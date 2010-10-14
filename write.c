@@ -17,10 +17,7 @@ struct io_block_t {
 
 #pragma mark GLOBALS
 
-#define DEBUG 0
-
 static bool gTar = true;
-static uint32_t gPreset = LZMA_PRESET_DEFAULT;
 
 static size_t gBlockInSize = 0, gBlockOutSize = 0;
 
@@ -39,12 +36,6 @@ static size_t gFileIndexBufPos = 0;
 
 
 #pragma mark FUNCTION DECLARATIONS
-
-#if DEBUG
-    #define debug(str, ...) fprintf(stderr, str "\n", ##__VA_ARGS__)
-#else
-    #define debug(...)
-#endif
 
 static void read_thread();
 static void encode_thread(size_t thnum);
@@ -66,22 +57,25 @@ static void write_file_index(void);
 static void write_file_index_bytes(size_t size, uint8_t *buf);
 static void write_file_index_buf(lzma_action action);
 
+void pixz_write(bool tar, uint32_t level);
 
 #pragma mark FUNCTION DEFINITIONS
 
 int main(int argc, char **argv) {
     char *progname = argv[0];
+    uint32_t level = LZMA_PRESET_DEFAULT;
+    bool tar = true;
     debug("launch");
     
     int ch;
     while ((ch = getopt(argc, argv, "t0123456789")) != -1) {
         switch (ch) {
             case 't':
-                gTar = false;
+                tar = false;
                 break;
             default:
                 if (optopt >= '0' && optopt <= '9') {
-                    gPreset = optopt - '0';
+                    level = optopt - '0';
                 } else {
                     die("Unknown option");
                 }
@@ -89,7 +83,6 @@ int main(int argc, char **argv) {
     }
     argc -= optind - 1;
     argv += optind - 1;
-    
 
     if (argc == 1) {
         gInFile = stdin;
@@ -103,9 +96,15 @@ int main(int argc, char **argv) {
         die("Usage: %s [-t] [INPUT OUTPUT]", progname);
     }
     
+    pixz_write(tar, level);
+}
+    
+void pixz_write(bool tar, uint32_t level) {
+    gTar = tar;
+    
     // xz options
     lzma_options_lzma lzma_opts;
-    if (lzma_lzma_preset(&lzma_opts, gPreset))
+    if (lzma_lzma_preset(&lzma_opts, level))
         die("Error setting lzma options");
     gFilters[0] = (lzma_filter){ .id = LZMA_FILTER_LZMA2,
             .options = &lzma_opts };
@@ -149,7 +148,6 @@ int main(int argc, char **argv) {
     pipeline_destroy();
     
     debug("exit");
-    return 0;
 }
 
 

@@ -5,13 +5,6 @@
 
 #include <getopt.h>
 
-#define DEBUG 0
-#if DEBUG
-    #define debug(str, ...) fprintf(stderr, str "\n", ##__VA_ARGS__)
-#else
-    #define debug(...)
-#endif
-
 
 #pragma mark DECLARE WANTED
 
@@ -64,7 +57,8 @@ static lzma_vli gFileIndexOffset = 0;
 static size_t gBlockInSize = 0, gBlockOutSize = 0;
 
 static void set_block_sizes(void);
-static void pixz_read(bool verify, size_t nspecs, char **specs);
+
+void pixz_read(bool verify, size_t nspecs, char **specs);
 
 
 #pragma mark MAIN
@@ -93,7 +87,7 @@ int main(int argc, char **argv) {
     return 0;
 }
     
-static void pixz_read(bool verify, size_t nspecs, char **specs) {
+void pixz_read(bool verify, size_t nspecs, char **specs) {
     decode_index();
     if (verify)
         gFileIndexOffset = read_file_index(0);
@@ -419,7 +413,7 @@ static ssize_t tar_read(struct archive *ar, void *ref, const void **bufp) {
         off = 0;
         size = ib->outsize;
     }
-    debug("tar off = %zu, size = %zu", off, size);
+    debug("tar off = %llu, size = %zu", (unsigned long long)off, size);
     
     gArLastOffset = off;
     gArLastSize = size;

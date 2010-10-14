@@ -2,6 +2,7 @@
 
 #include <getopt.h>
 
+void pixz_list(bool tar);
 
 #pragma mark FUNCTION DEFINITIONS
 
@@ -31,6 +32,11 @@ int main(int argc, char **argv) {
         die("Usage: %s -f [FILE]", progname);
     }
     
+    pixz_list(tar);
+    return 0;
+}
+
+void pixz_list(bool tar) {
     decode_index();
     lzma_index_iter iter;
     lzma_index_iter_init(&iter, gIndex);
@@ -48,6 +54,4 @@ int main(int argc, char **argv) {
     
     lzma_index_end(gIndex, NULL);
     lzma_end(&gStream);
-    
-    return 0;
 }

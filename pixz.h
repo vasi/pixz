@@ -20,6 +20,13 @@
 
 #define CHUNKSIZE 4096
 
+#define DEBUG 1
+#if DEBUG
+    #define debug(str, ...) fprintf(stderr, str "\n", ##__VA_ARGS__)
+#else
+    #define debug(...)
+#endif
+
 
 #pragma mark UTILS
 
