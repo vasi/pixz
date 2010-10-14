@@ -25,7 +25,8 @@ typedef struct wanted_t wanted_t;
 struct wanted_t {
     wanted_t *next;
     char *name;
-    size_t start, end, size;
+    off_t start, end;
+    size_t size;
 };
 
 static wanted_t *gWantedFiles = NULL;
@@ -40,7 +41,7 @@ static void wanted_free(wanted_t *w);
 typedef struct {
     uint8_t *input, *output;
     size_t insize, outsize;
-    size_t uoffset; // uncompressed offset
+    off_t uoffset; // uncompressed offset
 } io_block_t;
 
 static void *block_create(void);
@@ -52,7 +53,8 @@ static void decode_thread(size_t thnum);
 #pragma mark DECLARE ARCHIVE
 
 static pipeline_item_t *gArItem = NULL, *gArLastItem = NULL;
-static size_t gArLastOffset, gArLastSize;
+static off_t gArLastOffset;
+static size_t gArLastSize;
 static wanted_t *gArWanted = NULL;
 static bool gArNextItem = false;
 
@@ -270,14 +272,14 @@ static void read_thread(void) {
     lzma_index_iter_init(&iter, gIndex);
     while (!lzma_index_iter_next(&iter, LZMA_INDEX_ITER_BLOCK)) {
         // Don't decode the file-index
-        size_t boffset = iter.block.compressed_file_offset,
-            bsize = iter.block.total_size;
+        off_t boffset = iter.block.compressed_file_offset;
+        size_t bsize = iter.block.total_size;
         if (gFileIndexOffset && boffset == gFileIndexOffset)
             continue;
         
         // Do we need this block?
         if (gWantedFiles) {
-            size_t uend = iter.block.uncompressed_file_offset +
+            off_t uend = iter.block.uncompressed_file_offset +
                 iter.block.uncompressed_size;
             if (!w || w->start >= uend) {
                 debug("read: skip %llu", iter.block.number_in_file);
@@ -377,7 +379,8 @@ static ssize_t tar_read(struct archive *ar, void *ref, const void **bufp) {
     if (!tar_next_block())
         return 0;
     
-    size_t off, size;
+    off_t off;
+    size_t size;
     io_block_t *ib = (io_block_t*)(gArItem->data);
     if (gWantedFiles) {
         off = gArWanted->start - ib->uoffset;
