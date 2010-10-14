@@ -57,7 +57,7 @@ bool is_multi_header(const char *name);
 void decode_index(void);
 
 lzma_vli find_file_index(void **bdatap);
-lzma_vli read_file_index(void);
+lzma_vli read_file_index(lzma_vli offset);
 void dump_file_index(FILE *out);
 void free_file_index(void);
 

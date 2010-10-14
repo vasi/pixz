@@ -140,10 +140,11 @@ lzma_vli find_file_index(void **bdatap) {
     return ret; 
 }  
 
-lzma_vli read_file_index(void) {
-    void *bdata;
-    lzma_vli offset = find_file_index(&bdata);
-    if (!bdata)
+lzma_vli read_file_index(lzma_vli offset) {
+    void *bdata = NULL;
+    if (!offset)
+        offset = find_file_index(&bdata);
+    if (!offset)
         return 0;
     
     while (true) {

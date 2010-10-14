@@ -40,7 +40,7 @@ int main(int argc, char **argv) {
             (uintmax_t)iter.block.uncompressed_size);
     }
     
-    if (tar && read_file_index()) {
+    if (tar && read_file_index(0)) {
         printf("\n");
         dump_file_index(stdout);
         free_file_index();

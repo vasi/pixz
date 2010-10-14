@@ -6,8 +6,8 @@
 #include <getopt.h>
 
 /* TODO
- * - Don't read index unless necessary?
  * - Check sizes of files vs index
+ * - Test against "normal" xz, txz files
  */
 
 #define DEBUG 0
@@ -94,8 +94,9 @@ int main(int argc, char **argv) {
         }
     }
     
-    // TODO: ONly read index if necessary?
-    gFileIndexOffset = read_file_index();
+    decode_index();
+    if (verify)
+        gFileIndexOffset = read_file_index(0);
     wanted_files(argc - optind, argv + optind);
 #if DEBUG
     for (wanted_t *w = gWantedFiles; w; w = w->next)
@@ -122,8 +123,8 @@ int main(int argc, char **argv) {
                 die("Error reading archive entry");
             }
             const char *path = archive_entry_pathname(entry);
-            if (is_multi_header(path))
-                continue;
+//            if (is_multi_header(path))
+//                continue;
             
             size_t size = archive_entry_size(entry);
             if (!w)
