@@ -20,7 +20,7 @@
 
 #define CHUNKSIZE 4096
 
-#define DEBUG 1
+#define DEBUG 0
 #if DEBUG
     #define debug(str, ...) fprintf(stderr, str "\n", ##__VA_ARGS__)
 #else
