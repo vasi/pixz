@@ -6,7 +6,6 @@
 #include <getopt.h>
 
 /* TODO
- * - Check sizes of files vs index
  * - Replace 'read' with 'pread'
  * - Make a filter for tar
  */
@@ -108,7 +107,9 @@ int main(int argc, char **argv) {
     pipeline_create(block_create, block_free, read_thread, decode_thread);
     if (verify && gFileIndexOffset) {
         gArWanted = gWantedFiles;
-        wanted_t *w = gWantedFiles;
+        wanted_t *w = gWantedFiles, *wlast = NULL;
+        bool lastmulti = false;
+        off_t lastoff = 0;
         
         struct archive *ar = archive_read_new();
         archive_read_support_compression_none(ar);
@@ -123,19 +124,28 @@ int main(int argc, char **argv) {
                 fprintf(stderr, "%s\n", archive_error_string(ar));
                 die("Error reading archive entry");
             }
+            
+            off_t off = archive_read_header_position(ar);
             const char *path = archive_entry_pathname(entry);
-            if (is_multi_header(path))
+            if (!lastmulti) {
+                if (wlast && wlast->size != off - lastoff)
+                    die("Index and archive show differing sizes for %s: %d vs %d",
+                        wlast->name, wlast->size, off - lastoff);
+                lastoff = off;
+            }
+            
+            lastmulti = is_multi_header(path);
+            if (lastmulti)
                 continue;
             
-            size_t size = archive_entry_size(entry);
             if (!w)
                 die("File %s missing in index", path);
             if (strcmp(path, w->name) != 0)
                 die("Index and archive differ as to next file: %s vs %s",
                     w->name, path);
-            w = w->next;
             
-            // TODO: compare size somehow?
+            wlast = w;
+            w = w->next;
         }
         if (w && w->name)
             die("File %s missing in archive", w->name);
