@@ -123,8 +123,8 @@ int main(int argc, char **argv) {
                 die("Error reading archive entry");
             }
             const char *path = archive_entry_pathname(entry);
-//            if (is_multi_header(path))
-//                continue;
+            if (is_multi_header(path))
+                continue;
             
             size_t size = archive_entry_size(entry);
             if (!w)
