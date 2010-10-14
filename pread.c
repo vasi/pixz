@@ -6,7 +6,9 @@
 #include <getopt.h>
 
 /* TODO
- * - verify file-index matches archive contents
+ * - Don't read index unless necessary?
+ * - Check sizes of files vs index
+ * - Allow copyfile multi-headers
  */
 
 #define DEBUG 0
@@ -100,9 +102,11 @@ int main(int argc, char **argv) {
 #endif
     set_block_sizes();
     
-    gArWanted = gWantedFiles;
     pipeline_create(block_create, block_free, read_thread, decode_thread);
     if (verify && gFileIndexOffset) {
+        gArWanted = gWantedFiles;
+        wanted_t *w = gWantedFiles;
+        
         struct archive *ar = archive_read_new();
         archive_read_support_compression_none(ar);
         archive_read_support_format_tar(ar);
@@ -116,8 +120,20 @@ int main(int argc, char **argv) {
                 fprintf(stderr, "%s\n", archive_error_string(ar));
                 die("Error reading archive entry");
             }
-            fprintf(stderr, "%s\n", archive_entry_pathname(entry));
+            
+            const char *path = archive_entry_pathname(entry);
+            size_t size = archive_entry_size(entry);
+            if (!w)
+                die("File %s missing in index", path);
+            if (strcmp(path, w->name) != 0)
+                die("Index and archive differ as to next file: %s vs %s",
+                    w->name, path);
+            w = w->next;
+            
+            // TODO: compare size somehow?
         }
+        if (w && w->name)
+            die("File %s missing in archive", w->name);
     } else {
         pipeline_item_t *pi;
         while ((pi = pipeline_merged())) {
