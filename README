@@ -7,14 +7,36 @@ The existing XZ Utils ( http://tukaani.org/xz/ ) provide great compression in th
 * The .xz files they produce are just one big block of compressed data, rather than a collection of smaller blocks. This makes random access to the original data impossible.
 
 
-With pixz, both these problems can eventually be solved. Currently these pixz tools are available:
+With pixz, both these problems are solved. The most useful commands:
 
-* write INPUT.tar OUTPUT.tpxz: Compresses an uncompressed tarball. The compression uses two cores. An index of all the files in the tarball is stored within the file, yet it remains compatible with standard xz and tar.
+$ pixz foo.tar foo.tpxz			# Compress and index a tarball, multi-core
+$ pixz -l foo.tpxz				# Very quickly list the contents of the compressed tarball
+$ pixz -x dir/file < foo.tpxz | tar x	# Very quickly extract a file, multi-core.
+										# Also verifies that contents match index.
 
-* read INPUT.tpxz PATH: Efficiently extracts a single file from a tarball compressed by 'write'.
+$ pixz bar bar.xz			# Compress a non-tarball, multi-core
+$ pixz -d bar.xz bar		# Decompress it, multi-core
 
-* list [-t] INPUT.xz: Lists the xz blocks present within any .xz file. Optionally also lists a file index as stored by 'write'.
 
+Specifying input and output:
+
+$ pixz < foo.tar > foo.tpxz		# Same as 'pixz foo.tar foo.tpxz'
+$ pixz -i foo.tar -o foo.tpxz	# Ditto. These both work for -x, -d and -l too, eg:
+
+$ pixz -x -i foo.tpxz -o foo.tar file1 file2 ... # Extract the files from foo.tpxz into foo.tar
+
+$ pixz foo.tar					# Compress it to foo.tpxz, removing the original
+$ pixz -d foo.tpxz				# Extract it to foo.tar, removing the original
+
+
+Other flags:
+
+$ pixz -1 foo.tar			# Faster, worse compression
+$ pixz -9 foo.tar			# Better, slower compression 
+
+$ pixz -t foo.tar			# Compress but don't treat it as a tarball (don't index it)
+$ pixz -d -t foo.tpxz		# Decompress foo, don't check that contents match index
+$ pixz -l -t foo.tpxz		# List the xz blocks instead of files
 
 
 Compare to:

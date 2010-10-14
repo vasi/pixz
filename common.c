@@ -87,9 +87,15 @@ static void read_file_index_make_space(void);
 static void read_file_index_data(void);
 
 
-void dump_file_index(FILE *out) {
+void dump_file_index(FILE *out, bool verbose) {
     for (file_index_t *f = gFileIndex; f != NULL; f = f->next) {
-        fprintf(out, "%10"PRIuMAX" %s\n", (uintmax_t)f->offset, f->name ? f->name : "");
+        if (verbose) {
+            fprintf(out, "%10"PRIuMAX" %s\n", (uintmax_t)f->offset,
+                f->name ? f->name : "");
+        } else {
+            if (f->name)
+                fprintf(out, "%s\n", f->name);
+        }
     }    
 }
 
