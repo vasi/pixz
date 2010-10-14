@@ -47,6 +47,18 @@ static void read_thread(void);
 static void decode_thread(size_t thnum);
 
 
+#pragma mark DECLARE ARCHIVE
+
+static pipeline_item_t *gArItem = NULL, *gArLastItem = NULL;
+static size_t gArLastOffset, gArLastSize;
+static wanted_t *gArWanted = NULL;
+static bool gArNextItem = false;
+
+static int tar_ok(struct archive *ar, void *ref);
+static ssize_t tar_read(struct archive *ar, void *ref, const void **bufp);
+static bool tar_next_block(void);
+
+
 #pragma mark DECLARE UTILS
 
 static FILE *gOutFile;
@@ -57,69 +69,6 @@ static void set_block_sizes(void);
 
 
 #pragma mark MAIN
-
-static int tar_ok(struct archive *ar, void *ref) {
-    return ARCHIVE_OK;
-}
-
-static pipeline_item_t *gArItem = NULL, *gArLastItem = NULL;
-static size_t gArLastOffset, gArLastSize;
-static wanted_t *gArWanted = NULL;
-static bool gArNextItem = false;
-
-static bool tar_next_block(void) {
-    if (gArItem && !gArNextItem && gArWanted) {
-        io_block_t *ib = (io_block_t*)(gArItem->data);
-        if (gArWanted->start < ib->uoffset + ib->outsize)
-            return true; // No need
-    }
-    
-    if (gArLastItem)
-        queue_push(gPipelineStartQ, PIPELINE_ITEM, gArLastItem);
-    gArLastItem = gArItem;
-    gArItem = pipeline_merged();
-    gArNextItem = false;
-    return gArItem;
-}
-
-static ssize_t tar_read(struct archive *ar, void *ref, const void **bufp) {
-    // If we got here, the last bit of archive is ok to write
-    if (gArItem) {
-        io_block_t *ib = (io_block_t*)(gArItem->data);
-        fwrite(ib->output + gArLastOffset, gArLastSize, 1, gOutFile);
-    }
-    
-    // TODO: don't assume we have wanted files!!!
-    
-    // Write the first wanted file
-    if (!tar_next_block())
-        return 0;
-    
-    size_t off, size;
-    io_block_t *ib = (io_block_t*)(gArItem->data);
-    if (gWantedFiles) {
-        off = gArWanted->start - ib->uoffset;
-        size = gArWanted->size;
-        if (off < 0) {
-            size += off;
-            off = 0;
-        }
-        if (off + size > ib->outsize) {
-            size = ib->outsize - off;
-            gArNextItem = true; // force the end of this block
-        } else {
-            gArWanted = gArWanted->next;
-        }
-    } else {
-        off = 0;
-        size = ib->outsize;
-    }
-    
-    gArLastOffset = off;
-    gArLastSize = size;
-    *bufp = ib->output + off;
-    return size;
-}
 
 int main(int argc, char **argv) {
     gInFile = stdin;
@@ -377,4 +326,63 @@ static void decode_thread(size_t thnum) {
         queue_push(gPipelineMergeQ, PIPELINE_ITEM, pi);
     }
     lzma_end(&stream);
+}
+
+
+#pragma mark ARCHIVE
+
+static int tar_ok(struct archive *ar, void *ref) {
+    return ARCHIVE_OK;
+}
+
+static bool tar_next_block(void) {
+    if (gArItem && !gArNextItem && gArWanted) {
+        io_block_t *ib = (io_block_t*)(gArItem->data);
+        if (gArWanted->start < ib->uoffset + ib->outsize)
+            return true; // No need
+    }
+    
+    if (gArLastItem)
+        queue_push(gPipelineStartQ, PIPELINE_ITEM, gArLastItem);
+    gArLastItem = gArItem;
+    gArItem = pipeline_merged();
+    gArNextItem = false;
+    return gArItem;
+}
+
+static ssize_t tar_read(struct archive *ar, void *ref, const void **bufp) {
+    // If we got here, the last bit of archive is ok to write
+    if (gArItem) {
+        io_block_t *ib = (io_block_t*)(gArItem->data);
+        fwrite(ib->output + gArLastOffset, gArLastSize, 1, gOutFile);
+    }
+        
+    // Write the first wanted file
+    if (!tar_next_block())
+        return 0;
+    
+    size_t off, size;
+    io_block_t *ib = (io_block_t*)(gArItem->data);
+    if (gWantedFiles) {
+        off = gArWanted->start - ib->uoffset;
+        size = gArWanted->size;
+        if (off < 0) {
+            size += off;
+            off = 0;
+        }
+        if (off + size > ib->outsize) {
+            size = ib->outsize - off;
+            gArNextItem = true; // force the end of this block
+        } else {
+            gArWanted = gArWanted->next;
+        }
+    } else {
+        off = 0;
+        size = ib->outsize;
+    }
+    
+    gArLastOffset = off;
+    gArLastSize = size;
+    *bufp = ib->output + off;
+    return size;
 }
