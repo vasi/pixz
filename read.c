@@ -58,35 +58,9 @@ static size_t gBlockInSize = 0, gBlockOutSize = 0;
 
 static void set_block_sizes(void);
 
-void pixz_read(bool verify, size_t nspecs, char **specs);
-
 
 #pragma mark MAIN
 
-int main(int argc, char **argv) {
-    gInFile = stdin;
-    gOutFile = stdout;
-    bool verify = true;
-    int ch;
-    while ((ch = getopt(argc, argv, "i:o:v")) != -1) {
-        switch (ch) {
-            case 'i':
-                if (!(gInFile = fopen(optarg, "r")))
-                    die ("Can't open input file");
-                break;
-            case 'o':
-                if (!(gOutFile = fopen(optarg, "w")))
-                    die ("Can't open output file");
-                break;
-            case 'v': verify = false; break;
-            default:
-                die("Unknown option");
-        }
-    }
-    pixz_read(verify, argc - optind, argv + optind);
-    return 0;
-}
-    
 void pixz_read(bool verify, size_t nspecs, char **specs) {
     decode_index();
     if (verify)

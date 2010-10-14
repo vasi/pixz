@@ -57,48 +57,9 @@ static void write_file_index(void);
 static void write_file_index_bytes(size_t size, uint8_t *buf);
 static void write_file_index_buf(lzma_action action);
 
-void pixz_write(bool tar, uint32_t level);
 
 #pragma mark FUNCTION DEFINITIONS
 
-int main(int argc, char **argv) {
-    char *progname = argv[0];
-    uint32_t level = LZMA_PRESET_DEFAULT;
-    bool tar = true;
-    debug("launch");
-    
-    int ch;
-    while ((ch = getopt(argc, argv, "t0123456789")) != -1) {
-        switch (ch) {
-            case 't':
-                tar = false;
-                break;
-            default:
-                if (optopt >= '0' && optopt <= '9') {
-                    level = optopt - '0';
-                } else {
-                    die("Unknown option");
-                }
-        }
-    }
-    argc -= optind - 1;
-    argv += optind - 1;
-
-    if (argc == 1) {
-        gInFile = stdin;
-        gOutFile = stdout;
-    } else if (argc == 3) {
-        if (!(gInFile = fopen(argv[1], "r")))
-            die("Can't open input file");
-        if (!(gOutFile = fopen(argv[2], "w")))
-            die("Can't open output file");
-    } else {
-        die("Usage: %s [-t] [INPUT OUTPUT]", progname);
-    }
-    
-    pixz_write(tar, level);
-}
-    
 void pixz_write(bool tar, uint32_t level) {
     gTar = tar;
     

@@ -2,39 +2,7 @@
 
 #include <getopt.h>
 
-void pixz_list(bool tar);
-
 #pragma mark FUNCTION DEFINITIONS
-
-int main(int argc, char **argv) {
-    char *progname = argv[0];
-    
-    bool tar = true;
-    int ch;
-    while ((ch = getopt(argc, argv, "t")) != -1) {
-        switch (ch) {
-            case 't':
-                tar = false;
-                break;
-            default:
-                die("Unknown option");
-        }
-    }
-    argc -= optind - 1;
-    argv += optind - 1;
-    
-    if (argc == 1) {
-        gInFile = stdin;
-    } else if (argc == 2) {
-        if (!(gInFile = fopen(argv[1], "r")))
-            die("Can't open input file");
-    } else {
-        die("Usage: %s -f [FILE]", progname);
-    }
-    
-    pixz_list(tar);
-    return 0;
-}
 
 void pixz_list(bool tar) {
     decode_index();

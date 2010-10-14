@@ -28,6 +28,13 @@
 #endif
 
 
+#pragma mark OPERATIONS
+
+void pixz_list(bool tar);
+void pixz_write(bool tar, uint32_t level);
+void pixz_read(bool verify, size_t nspecs, char **specs);
+
+
 #pragma mark UTILS
 
 FILE *gInFile, *gOutFile;
