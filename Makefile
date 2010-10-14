@@ -17,7 +17,7 @@ CC = gcc
 COMPILE = $(CC) $(CFLAGS) -c -o
 LD = $(CC) $(LDFLAGS) -o
 
-PROGS = write read list pread
+PROGS = write read list
 COMMON = common.o endian.o cpu.o
 
 all: $(PROGS)
