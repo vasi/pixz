@@ -8,7 +8,6 @@
 /* TODO
  * - Don't read index unless necessary?
  * - Check sizes of files vs index
- * - Allow copyfile multi-headers
  */
 
 #define DEBUG 0
@@ -122,8 +121,10 @@ int main(int argc, char **argv) {
                 fprintf(stderr, "%s\n", archive_error_string(ar));
                 die("Error reading archive entry");
             }
-            
             const char *path = archive_entry_pathname(entry);
+            if (is_multi_header(path))
+                continue;
+            
             size_t size = archive_entry_size(entry);
             if (!w)
                 die("File %s missing in index", path);
@@ -136,6 +137,7 @@ int main(int argc, char **argv) {
         }
         if (w && w->name)
             die("File %s missing in archive", w->name);
+        tar_read(NULL, NULL, NULL); // write whatever's left
     } else {
         pipeline_item_t *pi;
         while ((pi = pipeline_merged())) {
@@ -373,6 +375,7 @@ static ssize_t tar_read(struct archive *ar, void *ref, const void **bufp) {
     if (gArItem) {
         io_block_t *ib = (io_block_t*)(gArItem->data);
         fwrite(ib->output + gArLastOffset, gArLastSize, 1, gOutFile);
+        gArLastSize = 0;
     }
         
     // Write the first wanted file
@@ -383,13 +386,14 @@ static ssize_t tar_read(struct archive *ar, void *ref, const void **bufp) {
     size_t size;
     io_block_t *ib = (io_block_t*)(gArItem->data);
     if (gWantedFiles) {
+        debug("tar want: %s", gArWanted->name);
         off = gArWanted->start - ib->uoffset;
         size = gArWanted->size;
         if (off < 0) {
             size += off;
             off = 0;
         }
-        if (off + size > ib->outsize) {
+        if (off + size >= ib->outsize) {
             size = ib->outsize - off;
             gArNextItem = true; // force the end of this block
         } else {
@@ -399,9 +403,11 @@ static ssize_t tar_read(struct archive *ar, void *ref, const void **bufp) {
         off = 0;
         size = ib->outsize;
     }
+    debug("tar off = %zu, size = %zu", off, size);
     
     gArLastOffset = off;
     gArLastSize = size;
-    *bufp = ib->output + off;
+    if (bufp)
+        *bufp = ib->output + off;
     return size;
 }

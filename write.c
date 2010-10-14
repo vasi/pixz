@@ -52,7 +52,6 @@ static void encode_thread(size_t thnum);
 static void *block_create();
 static void block_free(void *data);
 
-static bool is_multi_header(const char *name);
 static void add_file(off_t offset, const char *name);
 
 static archive_read_callback tar_read;
@@ -238,14 +237,6 @@ static ssize_t tar_read(struct archive *ar, void *ref, const void **bufp) {
 
 static int tar_ok(struct archive *ar, void *ref) {
     return ARCHIVE_OK;
-}
-
-static bool is_multi_header(const char *name) {
-    size_t i = strlen(name);
-    while (i != 0 && name[i - 1] != '/')
-        --i;
-    
-    return strncmp(name + i, "._", 2) == 0;
 }
 
 static void add_file(off_t offset, const char *name) {

@@ -62,6 +62,14 @@ void *decode_block_start(off_t block_seek) {
     return bw;
 }
 
+bool is_multi_header(const char *name) {
+    size_t i = strlen(name);
+    while (i != 0 && name[i - 1] != '/')
+        --i;
+    
+    return strncmp(name + i, "._", 2) == 0;
+}
+
 
 #pragma mark INDEX
 
