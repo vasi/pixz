@@ -368,7 +368,7 @@ void pipeline_create(
     
     gPLProcessCount = num_threads();
     gPLProcessThreads = malloc(gPLProcessCount * sizeof(pthread_t));
-    for (size_t i = 0; i < (int)(gPLProcessCount * 1.5 + 2); ++i) {
+    for (size_t i = 0; i < (int)(gPLProcessCount * 2 + 3); ++i) {
         // create blocks, including a margin of error
         pipeline_item_t *item = malloc(sizeof(pipeline_item_t));
         item->data = create();

@@ -3,7 +3,6 @@ ifneq ($(shell gcc -v 2>&1 | grep 'Apple Inc'),)
 endif
 
 LIBPREFIX = /Library/Fink/sl64 /opt/local
-LDFLAGS = $(patsubst %,-L%/lib,$(LIBPREFIX)) -g -Wall
 ifdef APPLE
 ifeq ($(CC),gcc)
 	LDFLAGS += -search_paths_first
@@ -12,6 +11,7 @@ endif
 OPT = -g -O0
 CFLAGS = $(patsubst %,-I%/include,$(LIBPREFIX)) $(OPT) -std=c99 \
 	-Wall -Wno-unknown-pragmas
+    LDFLAGS = $(patsubst %,-L%/lib,$(LIBPREFIX)) $(OPT) -Wall
 
 CC = gcc
 COMPILE = $(CC) $(CFLAGS) -c -o
