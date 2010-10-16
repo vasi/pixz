@@ -30,8 +30,8 @@ int main(int argc, char **argv) {
             case 'o': opath = optarg; break;
             case 't': tar = false; break;
             default:
-                if (optopt >= '0' && optopt <= '9') {
-                    level = optopt - '0';
+                if (ch >= '0' && ch <= '9') {
+                    level = ch - '0';
                 } else {
                     die("Unknown option");
                 }
