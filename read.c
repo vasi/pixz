@@ -375,7 +375,7 @@ static ssize_t tar_read(struct archive *ar, void *ref, const void **bufp) {
             size += off;
             off = 0;
         }
-        if (off + size >= ib->outsize) {
+        if (off + size > ib->outsize) {
             size = ib->outsize - off;
             gArNextItem = true; // force the end of this block
         } else {
