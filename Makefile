@@ -9,7 +9,7 @@ ifeq ($(CC),gcc)
 endif
 endif
 OPT = -g -O0
-CFLAGS = $(patsubst %,-I%/include,$(LIBPREFIX)) $(OPT) -std=c99 \
+CFLAGS = $(patsubst %,-I%/include,$(LIBPREFIX)) $(OPT) -std=gnu99 \
 	-Wall -Wno-unknown-pragmas
     LDFLAGS = $(patsubst %,-L%/lib,$(LIBPREFIX)) $(OPT) -Wall
 

@@ -15,14 +15,14 @@ void xle64enc(uint8_t *d, uint64_t n) {
 
 #define _BSD_SOURCE
 #include <stdint.h>
-#include <endian.h>
+#include <asm/byteorder.h>
 
 uint64_t xle64dec(const uint8_t *d) {
-    return le64toh(*(uint64_t*)d);
+    return __le64_to_cpu(*(uint64_t*)d);
 }
 
 void xle64enc(uint8_t *d, uint64_t n) {
-    *(uint64_t*)d = htole64(n);
+    *(uint64_t*)d = __cpu_to_le64(n);
 }
 
 
