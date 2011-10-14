@@ -12,6 +12,7 @@ typedef enum {
 static bool strsuf(char *big, char *small);
 static char *subsuf(char *in, char *suf1, char *suf2);
 static char *auto_output(pixz_op_t op, char *in);
+static void show_help_and_die();
 
 
 int main(int argc, char **argv) {
@@ -22,8 +23,9 @@ int main(int argc, char **argv) {
     size_t max_procs = 0; /* default to however many machine has */
 
     int ch;
-    while ((ch = getopt(argc, argv, "dxli:o:p:tv0123456789")) != -1) {
+    while ((ch = getopt(argc, argv, "dxli:o:p:tvh0123456789")) != -1) {
         switch (ch) {
+            case 'h': show_help_and_die(); break;
             case 'd': op = OP_READ; break;
             case 'x': op = OP_EXTRACT; break;
             case 'l': op = OP_LIST; break;
@@ -116,4 +118,22 @@ static char *subsuf(char *in, char *suf1, char *suf2) {
     memcpy(r, in, li - l1);
     strcpy(r + li - l1, suf2);
     return r;
+}
+
+void show_help_and_die(argv)
+{
+    printf("pixz: parallel xz compression utility\n");
+    printf("Usage:\n");
+    printf("\n");
+    printf("\t-i <filename>: Specify input file (otherwise will read from stdin)\n");
+    printf("\t-o <filename>: Specify output file (otherwise will write to stdout)\n");
+    printf("\t-d : Decompress (default is to compress in tar mode)\n");
+    printf("\t-x : Decompress + extract, interprets input as pixz compressed tar\n");
+    printf("\t-l : List contents, interprets input as pixz compressed tar\n");
+    printf("\t-t : Do NOT treat data as tar, otherwise defaults to tar interpretation.\n");
+    printf("\t-p <N> : Specify maximum number of worker threads.\n");
+    printf("\t-0...-9 : Specify compression level.\n");
+    printf("\n");
+
+    exit(1);
 }
