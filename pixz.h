@@ -31,8 +31,8 @@
 #pragma mark OPERATIONS
 
 void pixz_list(bool tar);
-void pixz_write(bool tar, uint32_t level);
-void pixz_read(bool verify, size_t nspecs, char **specs);
+void pixz_write(bool tar, uint32_t level, size_t max_procs);
+void pixz_read(bool verify, size_t nspecs, char **specs, size_t max_procs);
 
 
 #pragma mark UTILS
@@ -48,7 +48,7 @@ char *xstrdup(const char *s);
 
 uint64_t xle64dec(const uint8_t *d);
 void xle64enc(uint8_t *d, uint64_t n);
-size_t num_threads(void);
+size_t num_threads(size_t max_procs);
 
 void *decode_block_start(off_t block_seek);
 
@@ -90,10 +90,10 @@ typedef void (*queue_free_t)(int type, void *p);
 typedef struct {
     queue_item_t *first;
     queue_item_t *last;
-    
+
     pthread_mutex_t mutex;
     pthread_cond_t pop_cond;
-    
+
     queue_free_t freer;
 } queue_t;
 
@@ -117,7 +117,7 @@ typedef struct pipeline_item_t pipeline_item_t;
 struct pipeline_item_t {
     size_t seq;
     pipeline_item_t *next;
-    
+
     void *data;
 };
 
@@ -130,7 +130,8 @@ void pipeline_create(
     pipeline_data_create_t create,
     pipeline_data_free_t destroy,
     pipeline_split_t split,
-    pipeline_process_t process);
+    pipeline_process_t process,
+    size_t max_procs);
 void pipeline_stop(void);
 void pipeline_destroy(void);
 
