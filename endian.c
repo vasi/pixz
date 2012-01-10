@@ -26,4 +26,18 @@ void xle64enc(uint8_t *d, uint64_t n) {
 }
 
 
+#elif defined(__FreeBSD__)
+
+#include <stdint.h>
+#include <sys/endian.h>
+
+uint64_t xle64dec(const uint8_t *d) {
+    return le64toh(*(uint64_t*)d);
+}
+
+void xle64enc(uint8_t *d, uint64_t n) {
+    *(uint64_t*)d = htole64(n);
+}
+
+
 #endif

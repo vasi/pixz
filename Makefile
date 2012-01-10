@@ -2,7 +2,7 @@ ifneq ($(shell gcc -v 2>&1 | grep 'Apple Inc'),)
 	APPLE=1
 endif
 
-LIBPREFIX = /Library/Fink/sl64 /opt/local
+LIBPREFIX = /Library/Fink/sl64 /opt/local /usr /usr/local
 ifdef APPLE
 ifeq ($(CC),gcc)
 	LDFLAGS += -search_paths_first
@@ -26,7 +26,7 @@ all: $(PROGS)
 	$(COMPILE) $@ $<
 
 $(PROGS): %: %.o $(COMMON)
-	$(LD) $@ $^ -llzma -larchive
+	$(LD) $@ $^ -llzma -larchive -pthread
 
 clean:
 	rm -f *.o $(PROGS)
