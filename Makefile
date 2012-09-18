@@ -11,7 +11,10 @@ endif
 OPT = -g -O0
 CFLAGS = $(patsubst %,-I%/include,$(LIBPREFIX)) $(OPT) -std=gnu99 \
 	-Wall -Wno-unknown-pragmas
-    LDFLAGS = $(patsubst %,-L%/lib,$(LIBPREFIX)) $(OPT) -Wall
+LDFLAGS = $(patsubst %,-L%/lib,$(LIBPREFIX)) $(OPT) -Wall
+
+THREADS = -lpthread
+LIBADD = $(THREADS) -llzma -larchive
 
 CC = gcc
 COMPILE = $(CC) $(CFLAGS) -c -o
@@ -26,7 +29,7 @@ all: $(PROGS)
 	$(COMPILE) $@ $<
 
 $(PROGS): %: %.o $(COMMON)
-	$(LD) $@ $^ -llzma -larchive
+	$(LD) $@ $^ $(LIBADD)
 
 clean:
 	rm -f *.o $(PROGS)
