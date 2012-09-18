@@ -16,7 +16,7 @@
 #define PIXZ_INDEX_MAGIC 0xDBAE14D62E324CA6LL
 
 #define CHECK LZMA_CHECK_CRC32
-#define MEMLIMIT (64L * 1024 * 1024 * 1024) // crazy high
+#define MEMLIMIT (64ULL * 1024 * 1024 * 1024) // crazy high
 
 #define CHUNKSIZE 4096
 
