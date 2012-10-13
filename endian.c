@@ -25,5 +25,23 @@ void xle64enc(uint8_t *d, uint64_t n) {
     *(uint64_t*)d = __cpu_to_le64(n);
 }
 
+#else
+
+// Platform independent
+#include <stdint.h>
+
+uint64_t xle64dec(const uint8_t *d) {
+	uint64_t r = 0;
+	for (const uint8_t *p = d + sizeof(r) - 1; p >= d; --p)
+		r = (r << 8) + *p;
+	return r;
+}
+
+void xle64enc(uint8_t *d, uint64_t n) {
+	for (uint8_t *p = d; p < d + sizeof(n); ++p) {
+		*p = n & 0xff;
+		n >>= 8;
+	}
+}
 
 #endif
