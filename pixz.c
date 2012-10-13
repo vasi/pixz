@@ -101,7 +101,9 @@ int main(int argc, char **argv) {
         die("Can't open input file");
     if (opath && !(gOutFile = fopen(opath, "w")))
         die("Can't open output file");
-    
+    if (isatty(fileno(gOutFile)) == 1)
+		usage("Refusing to output to a TTY");
+	
     switch (op) {
         case OP_WRITE: pixz_write(tar, level); break;
         case OP_READ: pixz_read(tar, 0, NULL); break;
