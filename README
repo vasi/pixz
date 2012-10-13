@@ -35,11 +35,19 @@ $ pixz -d foo.tpxz              # Extract it to foo.tar, removing the original
 Other flags:
 
 $ pixz -1 foo.tar           # Faster, worse compression
-$ pixz -9 foo.tar           # Better, slower compression 
+$ pixz -9 foo.tar           # Better, slower compression
 
 $ pixz -t foo.tar           # Compress but don't treat it as a tarball (don't index it)
 $ pixz -d -t foo.tpxz       # Decompress foo, don't check that contents match index
 $ pixz -l -t foo.tpxz       # List the xz blocks instead of files
+
+Threadcount limiting:
+
+pixz defaults to one thread per detected processor. You can
+limit the number of threads via -p. If count specified is
+greater than that available, pixz will complain and die.
+
+$ pg_dumpall ... | pixz -t -p 7 > db_dump.sql.pxz # Limit to 7 worker threads.
 
 WARNING: Running pixz without the -t flag will cause it to treat the input as a tarball, as long as it looks vaguely tarball-like. This means if the file starts with at least 1024 zero bytes, pixz will assume it's empty, and truncate the output! If your input files aren't tarballs, run with -t or face possible data-loss.
 
@@ -53,7 +61,7 @@ Compare to:
         * Python, much simpler
         * More flexible, supports arbitrary compression programs
         * Uses streams instead of blocks, not indexable
-        * Splits input and then combines output, much higher disk usage 
+        * Splits input and then combines output, much higher disk usage
     pxz
         * Simpler code
         * Uses OpenMP instead of pthreads

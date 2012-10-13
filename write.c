@@ -59,9 +59,9 @@ static void write_file_index_buf(lzma_action action);
 
 #pragma mark FUNCTION DEFINITIONS
 
-void pixz_write(bool tar, uint32_t level) {
+void pixz_write(bool tar, uint32_t level, size_t max_procs) {
     gTar = tar;
-    
+
     // xz options
     lzma_options_lzma lzma_opts;
     if (lzma_lzma_preset(&lzma_opts, level))
@@ -69,44 +69,45 @@ void pixz_write(bool tar, uint32_t level) {
     gFilters[0] = (lzma_filter){ .id = LZMA_FILTER_LZMA2,
             .options = &lzma_opts };
     gFilters[1] = (lzma_filter){ .id = LZMA_VLI_UNKNOWN, .options = NULL };
-    
+
     gBlockInSize = lzma_opts.dict_size * 1.0;
     gBlockOutSize = lzma_block_buffer_bound(gBlockInSize);
-    
-    pipeline_create(block_create, block_free, read_thread, encode_thread);
+
+    pipeline_create(block_create, block_free, read_thread,
+    											encode_thread, max_procs);
     debug("writer: start");
-    
+
     // pre-block setup: header, index
     if (!(gIndex = lzma_index_init(NULL)))
         die("Error creating index");
     stream_edge(LZMA_VLI_UNKNOWN);
-    
+
     // write blocks
     while (true) {
         pipeline_item_t *pi = pipeline_merged();
         if (!pi)
             break;
-        
+
         debug("writer: received %zu", pi->seq);
         write_block(pi);
         queue_push(gPipelineStartQ, PIPELINE_ITEM, pi);
     }
-    
+
     // file index
     if (gTar) {
         write_file_index();
         free_file_index();
     }
-    
+
     // post-block cleanup: index, footer
     encode_index();
     stream_edge(lzma_index_size(gIndex));
     lzma_index_end(gIndex, NULL);
     fclose(gOutFile);
-    
+
     debug("writer: cleaning up reader");
     pipeline_destroy();
-    
+
     debug("exit");
 }
 
@@ -115,7 +116,7 @@ void pixz_write(bool tar, uint32_t level) {
 
 static void read_thread() {
     debug("reader: start");
-    
+
     struct archive *ar = archive_read_new();
     archive_read_support_compression_none(ar);
     if (gTar)
@@ -133,7 +134,7 @@ static void read_thread() {
             fprintf(stderr, "%s\n", archive_error_string(ar));
             die("Error reading archive entry");
         }
-        
+
         if (archive_format(ar) == ARCHIVE_FORMAT_RAW)
             gTar = false;
         if (gTar) {
@@ -145,7 +146,7 @@ static void read_thread() {
     fclose(gInFile);
     if (gTar)
         add_file(gTotalRead, NULL);
-    
+
     // write last block, if necessary
     if (gReadItem) {
         // if this block had only one read, and it was EOF, it's waste
@@ -156,7 +157,7 @@ static void read_thread() {
             queue_push(gPipelineStartQ, PIPELINE_ITEM, gReadItem);
         gReadItem = NULL;
     }
-    
+
     // stop the other threads
     debug("reader: cleaning up encoders");
     pipeline_stop();
@@ -170,10 +171,10 @@ static ssize_t tar_read(struct archive *ar, void *ref, const void **bufp) {
         gReadBlock->insize = 0;
         debug("reader: reading %zu", gReadItemCount);
     }
-    
+
     size_t space = gBlockInSize - gReadBlock->insize;
     if (space > CHUNKSIZE)
-        space = CHUNKSIZE;    
+        space = CHUNKSIZE;
     uint8_t *buf = gReadBlock->input + gReadBlock->insize;
     size_t rd = fread(buf, 1, space, gInFile);
     if (ferror(gInFile))
@@ -181,14 +182,14 @@ static ssize_t tar_read(struct archive *ar, void *ref, const void **bufp) {
     gReadBlock->insize += rd;
     gTotalRead += rd;
     *bufp = buf;
-    
+
     if (gReadBlock->insize == gBlockInSize) {
         debug("reader: sending %zu", gReadItemCount);
         pipeline_split(gReadItem);
         ++gReadItemCount;
         gReadItem = NULL;
     }
-    
+
     return rd;
 }
 
@@ -203,13 +204,13 @@ static void add_file(off_t offset, const char *name) {
         gMultiHeader = true;
         return;
     }
-    
+
     file_index_t *f = malloc(sizeof(file_index_t));
     f->offset = gMultiHeader ? gMultiHeaderStart : offset;
     gMultiHeader = false;
     f->name = name ? xstrdup(name) : NULL;
     f->next = NULL;
-    
+
     if (gLastFile) {
         gLastFile->next = f;
     } else { // new index
@@ -236,28 +237,28 @@ static void *block_create() {
 #pragma mark ENCODING
 
 static void encode_thread(size_t thnum) {
-    lzma_stream stream = LZMA_STREAM_INIT;    
+    lzma_stream stream = LZMA_STREAM_INIT;
     while (true) {
         pipeline_item_t *pi;
         int msg = queue_pop(gPipelineSplitQ, (void**)&pi);
         if (msg == PIPELINE_STOP)
             break;
-        
+
         debug("encoder %zu: received %zu", thnum, pi->seq);
         io_block_t *ib = (io_block_t*)(pi->data);
-        
+
         block_init(&ib->block);
         if (lzma_block_header_encode(&ib->block, ib->output) != LZMA_OK)
             die("Error encoding block header");
         ib->outsize = ib->block.header_size;
-        
+
         if (lzma_block_encoder(&stream, &ib->block) != LZMA_OK)
             die("Error creating block encoder");
         stream.next_in = ib->input;
         stream.avail_in = ib->insize;
         stream.next_out = ib->output + ib->outsize;
         stream.avail_out = gBlockOutSize - ib->outsize;
-        
+
         lzma_ret err = LZMA_OK;
         while (err != LZMA_STREAM_END) {
             err = lzma_code(&stream, LZMA_FINISH);
@@ -265,11 +266,11 @@ static void encode_thread(size_t thnum) {
                 die("Error encoding block");
         }
         ib->outsize = stream.next_out - ib->output;
-        
+
         debug("encoder %zu: sending %zu", thnum, pi->seq);
         queue_push(gPipelineMergeQ, PIPELINE_ITEM, pi);
     }
-    
+
     lzma_end(&stream);
 }
 
@@ -281,7 +282,7 @@ static void block_init(lzma_block *block) {
     block->check = CHECK;
     block->filters = gFilters;
     block->compressed_size = block->uncompressed_size = LZMA_VLI_UNKNOWN;
-    
+
     if (lzma_block_header_size(block) != LZMA_OK)
         die("Error getting block header size");
 }
@@ -290,14 +291,14 @@ static void stream_edge(lzma_vli backward_size) {
     lzma_stream_flags flags = { .version = 0, .check = CHECK,
         .backward_size = backward_size };
     uint8_t buf[LZMA_STREAM_HEADER_SIZE];
-    
+
     lzma_ret (*encoder)(const lzma_stream_flags *flags, uint8_t *buf);
     encoder = backward_size == LZMA_VLI_UNKNOWN
         ? &lzma_stream_header_encode
         : &lzma_stream_footer_encode;
     if ((*encoder)(&flags, buf) != LZMA_OK)
         die("Error encoding stream edge");
-    
+
     if (fwrite(buf, LZMA_STREAM_HEADER_SIZE, 1, gOutFile) != 1)
         die("Error writing stream edge");
 }
@@ -305,7 +306,7 @@ static void stream_edge(lzma_vli backward_size) {
 static void write_block(pipeline_item_t *pi) {
     debug("writer: writing %zu", pi->seq);
     io_block_t *ib = (io_block_t*)(pi->data);
-    
+
     // Does it make sense to chunk this?
     size_t written = 0;
     while (ib->outsize > written) {
@@ -316,7 +317,7 @@ static void write_block(pipeline_item_t *pi) {
             die("Error writing block data");
         written += size;
     }
-    
+
     if (lzma_index_append(gIndex, NULL,
             lzma_block_unpadded_size(&ib->block),
             ib->block.uncompressed_size) != LZMA_OK)
@@ -352,10 +353,10 @@ static void write_file_index(void) {
         die("Error encoding file index header");
     if (fwrite(hdrbuf, block.header_size, 1, gOutFile) != 1)
         die("Error writing file index header");
-    
+
     if (lzma_block_encoder(&gStream, &block) != LZMA_OK)
         die("Error creating file index encoder");
-    
+
     uint8_t offbuf[sizeof(uint64_t)];
     xle64enc(offbuf, PIXZ_INDEX_MAGIC);
     write_file_index_bytes(sizeof(offbuf), offbuf);
@@ -384,7 +385,7 @@ static void write_file_index_bytes(size_t size, uint8_t *buf) {
         memcpy(gFileIndexBuf + gFileIndexBufPos, buf + bufpos, len);
         gFileIndexBufPos += len;
         bufpos += len;
-        
+
         if (gFileIndexBufPos == CHUNKSIZE) {
             write_file_index_buf(LZMA_RUN);
             gFileIndexBufPos = 0;
@@ -408,6 +409,6 @@ static void write_file_index_buf(lzma_action action) {
                 die("Error writing file index");
         }
     }
-    
+
     gFileIndexBufPos = 0;
 }

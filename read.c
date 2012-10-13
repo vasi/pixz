@@ -59,7 +59,7 @@ static void set_block_sizes(void);
 
 #pragma mark MAIN
 
-void pixz_read(bool verify, size_t nspecs, char **specs) {
+void pixz_read(bool verify, size_t nspecs, char **specs, size_t max_procs) {
     decode_index();
     if (verify)
         gFileIndexOffset = read_file_index(0);
@@ -70,14 +70,15 @@ void pixz_read(bool verify, size_t nspecs, char **specs) {
     for (wanted_t *w = gWantedFiles; w; w = w->next)
         debug("want: %s", w->name);
 #endif
-    
-    pipeline_create(block_create, block_free, read_thread, decode_thread);
+
+    pipeline_create(block_create, block_free, read_thread,
+    										decode_thread, max_procs);
     if (verify && gFileIndexOffset) {
         gArWanted = gWantedFiles;
         wanted_t *w = gWantedFiles, *wlast = NULL;
         bool lastmulti = false;
         off_t lastoff = 0;
-        
+
         struct archive *ar = archive_read_new();
         archive_read_support_compression_none(ar);
         archive_read_support_format_tar(ar);
@@ -91,7 +92,7 @@ void pixz_read(bool verify, size_t nspecs, char **specs) {
                 fprintf(stderr, "%s\n", archive_error_string(ar));
                 die("Error reading archive entry");
             }
-            
+
             off_t off = archive_read_header_position(ar);
             const char *path = archive_entry_pathname(entry);
             if (!lastmulti) {
@@ -100,17 +101,17 @@ void pixz_read(bool verify, size_t nspecs, char **specs) {
                         wlast->name, wlast->size, off - lastoff);
                 lastoff = off;
             }
-            
+
             lastmulti = is_multi_header(path);
             if (lastmulti)
                 continue;
-            
+
             if (!w)
                 die("File %s missing in index", path);
             if (strcmp(path, w->name) != 0)
                 die("Index and archive differ as to next file: %s vs %s",
                     w->name, path);
-            
+
             wlast = w;
             w = w->next;
         }
@@ -125,7 +126,7 @@ void pixz_read(bool verify, size_t nspecs, char **specs) {
             queue_push(gPipelineStartQ, PIPELINE_ITEM, pi);
         }
     }
-    
+
     pipeline_destroy();
     wanted_free(gWantedFiles);
 }
@@ -158,7 +159,7 @@ static void set_block_sizes() {
         lzma_vli off = iter.block.compressed_file_offset;
         if (gFileIndexOffset && off == gFileIndexOffset)
             continue;
-        
+
         size_t in = iter.block.total_size,
             out = iter.block.uncompressed_size;
         if (out > gBlockOutSize)
@@ -196,7 +197,7 @@ static void wanted_files(size_t count, char **specs) {
         gWantedFiles = NULL;
         return;
     }
-    
+
     // Remove trailing slashes from specs
     for (char **spec = specs; spec < specs + count; ++spec) {
         char *c = *spec;
@@ -204,11 +205,11 @@ static void wanted_files(size_t count, char **specs) {
         while (--c >= *spec && *c == '/')
             *c = '\0';
     }
-    
+
     bool matched[count];  // for each spec, does it match?
     memset(matched, 0, sizeof(matched));
     wanted_t *last = NULL;
-    
+
     // Check each file in order, to see if we want it
     for (file_index_t *f = gFileIndex; f->name; f = f->next) {
         bool match = !count;
@@ -219,7 +220,7 @@ static void wanted_files(size_t count, char **specs) {
                 break;
             }
         }
-        
+
         if (match) {
             wanted_t *w = malloc(sizeof(wanted_t));
             *w = (wanted_t){ .name = f->name, .start = f->offset,
@@ -233,7 +234,7 @@ static void wanted_files(size_t count, char **specs) {
             last = w;
         }
     }
-    
+
     // Make sure each spec matched
     for (size_t i = 0; i < count; ++i) {
         if (!matched[i])
@@ -247,7 +248,7 @@ static void wanted_files(size_t count, char **specs) {
 static void read_thread(void) {
     off_t offset = ftello(gInFile);
     wanted_t *w = gWantedFiles;
-    
+
     lzma_index_iter iter;
     lzma_index_iter_init(&iter, gIndex);
     while (!lzma_index_iter_next(&iter, LZMA_INDEX_ITER_BLOCK)) {
@@ -256,7 +257,7 @@ static void read_thread(void) {
         size_t bsize = iter.block.total_size;
         if (gFileIndexOffset && boffset == gFileIndexOffset)
             continue;
-        
+
         // Do we need this block?
         if (gWantedFiles) {
             off_t uend = iter.block.uncompressed_file_offset +
@@ -268,26 +269,26 @@ static void read_thread(void) {
             for ( ; w && w->end < uend; w = w->next) ;
         }
         debug("read: want %llu", iter.block.number_in_file);
-        
+
         // Get a block to work with
         pipeline_item_t *pi;
         queue_pop(gPipelineStartQ, (void**)&pi);
         io_block_t *ib = (io_block_t*)(pi->data);
-        
+
         // Seek if needed, and get the data
         if (offset != boffset) {
             fseeko(gInFile, boffset, SEEK_SET);
             offset = boffset;
-        }        
+        }
         ib->insize = fread(ib->input, 1, bsize, gInFile);
         if (ib->insize < bsize)
             die("Error reading block contents");
         offset += bsize;
         ib->uoffset = iter.block.uncompressed_file_offset;
-        
+
         pipeline_split(pi);
     }
-    
+
     pipeline_stop();
 }
 
@@ -295,31 +296,31 @@ static void decode_thread(size_t thnum) {
     lzma_stream stream = LZMA_STREAM_INIT;
     lzma_filter filters[LZMA_FILTERS_MAX + 1];
     lzma_block block = { .filters = filters, .check = gCheck, .version = 0 };
-    
+
     pipeline_item_t *pi;
     io_block_t *ib;
-    
+
     while (PIPELINE_STOP != queue_pop(gPipelineSplitQ, (void**)&pi)) {
         ib = (io_block_t*)(pi->data);
-        
+
         block.header_size = lzma_block_header_size_decode(*(ib->input));
         if (lzma_block_header_decode(&block, NULL, ib->input) != LZMA_OK)
             die("Error decoding block header");
         if (lzma_block_decoder(&stream, &block) != LZMA_OK)
             die("Error initializing block decode");
-        
+
         stream.avail_in = ib->insize - block.header_size;
         stream.next_in = ib->input + block.header_size;
         stream.avail_out = gBlockOutSize;
         stream.next_out = ib->output;
-        
+
         lzma_ret err = LZMA_OK;
         while (err != LZMA_STREAM_END) {
             if (err != LZMA_OK)
                 die("Error decoding block");
             err = lzma_code(&stream, LZMA_FINISH);
         }
-        
+
         ib->outsize = stream.next_out - ib->output;
         queue_push(gPipelineMergeQ, PIPELINE_ITEM, pi);
     }
@@ -339,7 +340,7 @@ static bool tar_next_block(void) {
         if (gArWanted->start < ib->uoffset + ib->outsize)
             return true; // No need
     }
-    
+
     if (gArLastItem)
         queue_push(gPipelineStartQ, PIPELINE_ITEM, gArLastItem);
     gArLastItem = gArItem;
@@ -359,11 +360,11 @@ static void tar_write_last(void) {
 static ssize_t tar_read(struct archive *ar, void *ref, const void **bufp) {
     // If we got here, the last bit of archive is ok to write
     tar_write_last();
-        
+
     // Write the first wanted file
     if (!tar_next_block())
         return 0;
-    
+
     off_t off;
     size_t size;
     io_block_t *ib = (io_block_t*)(gArItem->data);
@@ -386,7 +387,7 @@ static ssize_t tar_read(struct archive *ar, void *ref, const void **bufp) {
         size = ib->outsize;
     }
     debug("tar off = %llu, size = %zu", (unsigned long long)off, size);
-    
+
     gArLastOffset = off;
     gArLastSize = size;
     if (bufp)
