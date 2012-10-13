@@ -2,7 +2,6 @@ ifneq ($(shell gcc -v 2>&1 | grep 'Apple Inc'),)
 	APPLE=1
 endif
 
-LIBPREFIX = /Library/Fink/sl64 /opt/local
 ifdef APPLE
 ifeq ($(CC),gcc)
 	LDFLAGS += -search_paths_first
