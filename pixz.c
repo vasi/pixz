@@ -13,6 +13,40 @@ static bool strsuf(char *big, char *small);
 static char *subsuf(char *in, char *suf1, char *suf2);
 static char *auto_output(pixz_op_t op, char *in);
 
+static void usage(const char *msg) {
+	if (msg)
+		fprintf(stderr, "%s\n\n", msg);
+	
+	fprintf(stderr,
+"pixz: Parallel Indexing XZ compression, fully compatible with XZ\n"
+"\n"
+"Basic usage:\n"
+"  pixz input output.pxz           # Compress a file in parallel\n"
+"  pixz -d input.pxz output        # Decompress\n"
+"\n"
+"Tarballs:\n"
+"  pixz input.tar output.tpxz      # Compress and index a tarball\n"
+"  pixz -d input.tpxz output.tar   # Decompress\n"
+"  pixz -l input.tpxz              # List tarball contents very fast\n"
+"  pixz -x path/to/file < input.tpxz | tar x  # Extract one file very fast\n"
+"  tar -Ipixz -cf output.tpxz dir  # Make tar use pixz automatically\n"
+"\n"
+"Input and output:\n"
+"  pixz < input > output.pxz       # Same as `pixz input output.pxz`\n"
+"  pixz -i input -o output.pxz     # Ditto\n"
+"  pixz [-d] input                 # Automatically choose output filename\n"
+"\n"
+"Other flags:\n"
+"  -0, -1 ... -9      Set compression level, from fastest to strongest\n"
+"  -t                 Don't assume input is in tar format\n"
+"  -h                 Print this help\n"
+"\n"
+"(C) 2009-2012 Dave Vasilevsky <dave@vasilevsky.ca>\n"
+"https://github.com/vasi/pixz\n"
+"You may use this software under the FreeBSD License\n"
+	);
+	exit(2);
+}
 
 int main(int argc, char **argv) {    
     uint32_t level = LZMA_PRESET_DEFAULT;
@@ -21,7 +55,7 @@ int main(int argc, char **argv) {
     char *ipath = NULL, *opath = NULL;
     
     int ch;
-    while ((ch = getopt(argc, argv, "dxli:o:tv0123456789")) != -1) {
+    while ((ch = getopt(argc, argv, "dxli:o:tvh0123456789")) != -1) {
         switch (ch) {
             case 'd': op = OP_READ; break;
             case 'x': op = OP_EXTRACT; break;
@@ -29,11 +63,12 @@ int main(int argc, char **argv) {
             case 'i': ipath = optarg; break;
             case 'o': opath = optarg; break;
             case 't': tar = false; break;
+			case 'h': usage(NULL);
             default:
                 if (ch >= '0' && ch <= '9') {
                     level = ch - '0';
                 } else {
-                    die("Unknown option");
+                    usage("");
                 }
         }
     }
@@ -45,18 +80,20 @@ int main(int argc, char **argv) {
     bool iremove = false;    
     if (op != OP_EXTRACT && argc >= 1) {
         if (argc > 2 || (op == OP_LIST && argc == 2))
-            die("Too many arguments");
+            usage("Too many arguments");
         if (ipath)
-            die("Multiple input files specified");
+            usage("Multiple input files specified");
         ipath = argv[0];
         
         if (argc == 2) {
             if (opath)
-                die("Multiple output files specified");
+                usage("Multiple output files specified");
             opath = argv[1];
         } else if (op != OP_LIST) {
             iremove = true;
             opath = auto_output(op, argv[0]);
+			if (!opath)
+				usage("Unknown suffix");
         }
     }
     
@@ -92,7 +129,6 @@ static char *auto_output(pixz_op_t op, char *in) {
     SUF(READ, ".xz", "");
     SUF(WRITE, ".tar", ".tpxz");
     SUF(WRITE, "", ".xz");
-    die("Unknown suffix");
     return NULL;
 }
 
