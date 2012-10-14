@@ -333,6 +333,8 @@ queue_t *gPipelineStartQ = NULL,
     *gPipelineSplitQ = NULL,
     *gPipelineMergeQ = NULL;
 
+size_t gPipelineProcessMax = 0;
+
 pipeline_data_free_t gPLFreer = NULL;
 pipeline_split_t gPLSplit = NULL;
 pipeline_process_t gPLProcess = NULL;
@@ -367,6 +369,9 @@ void pipeline_create(
     gPLMergedItems = NULL;
     
     gPLProcessCount = num_threads();
+	if (gPipelineProcessMax > 0 && gPipelineProcessMax < gPLProcessCount)
+		gPLProcessCount = gPipelineProcessMax;
+	
     gPLProcessThreads = malloc(gPLProcessCount * sizeof(pthread_t));
     for (size_t i = 0; i < (int)(gPLProcessCount * 2 + 3); ++i) {
         // create blocks, including a margin of error

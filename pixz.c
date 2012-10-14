@@ -55,7 +55,9 @@ int main(int argc, char **argv) {
     char *ipath = NULL, *opath = NULL;
     
     int ch;
-    while ((ch = getopt(argc, argv, "dxli:o:tvh0123456789")) != -1) {
+	char *optend;
+	long optint;
+    while ((ch = getopt(argc, argv, "dxli:o:tvhp:0123456789")) != -1) {
         switch (ch) {
             case 'd': op = OP_READ; break;
             case 'x': op = OP_EXTRACT; break;
@@ -63,7 +65,13 @@ int main(int argc, char **argv) {
             case 'i': ipath = optarg; break;
             case 'o': opath = optarg; break;
             case 't': tar = false; break;
-			case 'h': usage(NULL);
+			case 'h': usage(NULL); break;
+			case 'p':
+				optint = strtol(optarg, &optend, 10);
+				if (optint < 0 || *optend)
+					usage("Need a non-negative integer argument to -p");
+				gPipelineProcessMax = optint;
+				break;
             default:
                 if (ch >= '0' && ch <= '9') {
                     level = ch - '0';
