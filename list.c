@@ -7,7 +7,7 @@ void pixz_list(bool tar) {
     lzma_index_iter iter;
     lzma_index_iter_init(&iter, gIndex);
 
-    if (tar && read_file_index(0)) {
+    if (tar && read_file_index()) {
         dump_file_index(stdout, false);
         free_file_index();
     } else {

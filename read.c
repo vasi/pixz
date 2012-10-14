@@ -62,7 +62,7 @@ static void check_capacity(io_block_t *ib, size_t incap, size_t outcap);
 void pixz_read(bool verify, size_t nspecs, char **specs) {
     decode_index();
     if (verify)
-        gFileIndexOffset = read_file_index(0);
+        gFileIndexOffset = read_file_index();
     wanted_files(nspecs, specs);
 
 #if DEBUG
