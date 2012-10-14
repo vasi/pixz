@@ -74,6 +74,8 @@ void pixz_read(bool verify, size_t nspecs, char **specs) {
     
     pipeline_create(block_create, block_free, read_thread_noindex, decode_thread);
     if (verify && gFileIndexOffset) {
+		// FIXME: verify this works with noindex/streamed reading
+		// FIXME: don't stop on End Of Archive
         gArWanted = gWantedFiles;
         wanted_t *w = gWantedFiles, *wlast = NULL;
         bool lastmulti = false;
