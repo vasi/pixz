@@ -47,7 +47,7 @@ static archive_read_callback tar_read;
 static archive_open_callback tar_ok;
 static archive_close_callback tar_ok;
 
-static void block_init(lzma_block *block);
+static void block_init(lzma_block *block, size_t insize);
 static void stream_edge(lzma_vli backward_size);
 static void write_block(pipeline_item_t *pi);
 static void encode_index(void);
@@ -255,11 +255,11 @@ static void encode_thread(size_t thnum) {
         debug("encoder %zu: received %zu", thnum, pi->seq);
         io_block_t *ib = (io_block_t*)(pi->data);
         
-        block_init(&ib->block);
-        if (lzma_block_header_encode(&ib->block, ib->output) != LZMA_OK)
-            die("Error encoding block header");
-        ib->outsize = ib->block.header_size;
-        
+        block_init(&ib->block, ib->insize);
+		size_t header_size = ib->block.header_size;
+		ib->block.uncompressed_size = LZMA_VLI_UNKNOWN;
+        ib->outsize = header_size;
+		        
         if (lzma_block_encoder(&stream, &ib->block) != LZMA_OK)
             die("Error creating block encoder");
         stream.next_in = ib->input;
@@ -275,7 +275,10 @@ static void encode_thread(size_t thnum) {
         }
         ib->outsize = stream.next_out - ib->output;
         
-        debug("encoder %zu: sending %zu", thnum, pi->seq);
+        if (lzma_block_header_encode(&ib->block, ib->output) != LZMA_OK)
+            die("Error encoding block header");
+        
+		debug("encoder %zu: sending %zu", thnum, pi->seq);
         queue_push(gPipelineMergeQ, PIPELINE_ITEM, pi);
     }
     
@@ -285,12 +288,13 @@ static void encode_thread(size_t thnum) {
 
 #pragma mark WRITING
 
-static void block_init(lzma_block *block) {
+static void block_init(lzma_block *block, size_t insize) {
     block->version = 0;
     block->check = CHECK;
     block->filters = gFilters;
-    block->compressed_size = block->uncompressed_size = LZMA_VLI_UNKNOWN;
-    
+	block->uncompressed_size = insize ? insize : LZMA_VLI_UNKNOWN;
+    block->compressed_size = insize? gBlockOutSize : LZMA_VLI_UNKNOWN;
+	
     if (lzma_block_header_size(block) != LZMA_OK)
         die("Error getting block header size");
 }
@@ -355,7 +359,7 @@ static void encode_index(void) {
 
 static void write_file_index(void) {
     lzma_block block;
-    block_init(&block);
+    block_init(&block, 0);
     uint8_t hdrbuf[block.header_size];
     if (lzma_block_header_encode(&block, hdrbuf) != LZMA_OK)
         die("Error encoding file index header");
