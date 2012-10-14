@@ -38,6 +38,7 @@ static void usage(const char *msg) {
 "\n"
 "Other flags:\n"
 "  -0, -1 ... -9      Set compression level, from fastest to strongest\n"
+"  -p NUM             Use a maximum of NUM CPU-intensive threads\n"
 "  -t                 Don't assume input is in tar format\n"
 "  -h                 Print this help\n"
 "\n"

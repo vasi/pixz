@@ -35,7 +35,8 @@ $ pixz -d foo.tpxz              # Extract it to foo.tar, removing the original
 Other flags:
 
 $ pixz -1 foo.tar           # Faster, worse compression
-$ pixz -9 foo.tar           # Better, slower compression 
+$ pixz -9 foo.tar           # Better, slower compression
+$ pixz -p 2 foo.tar         # Cap the number of threads at 2
 
 $ pixz -t foo.tar           # Compress but don't treat it as a tarball (don't index it)
 $ pixz -d -t foo.tpxz       # Decompress foo, don't check that contents match index
