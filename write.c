@@ -126,7 +126,6 @@ static void read_thread() {
 	    while (true) {
 	        int aerr = archive_read_next_header(ar, &entry);
 	        if (aerr == ARCHIVE_EOF) {
-	            // TODO
 	            break;
 	        } else if (aerr != ARCHIVE_OK && aerr != ARCHIVE_WARN) {
 	            // Some charset translations warn spuriously
