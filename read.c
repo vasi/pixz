@@ -226,7 +226,7 @@ static void wanted_files(size_t count, char **specs) {
 }
 
 
-#pragma mark THREADS
+#pragma mark READ
 
 static void check_capacity(io_block_t *ib, size_t incap, size_t outcap) {
 	if (incap > ib->incap) {
@@ -266,7 +266,7 @@ static void read_thread_noindex(void) {
 		check_capacity(ib, LZMA_BLOCK_HEADER_SIZE_MAX, 0);
 		
 		// Check for index
-		if (fread(ib->input, 1, 1, gInFile) != 1)
+		if (ib->insize < 1 && fread(ib->input, 1, 1, gInFile) != 1)
 			die("Error reading block header size");
 		if (ib->input[0] == 0)
 			break; // Found the index
@@ -347,6 +347,8 @@ static void read_thread(void) {
     
     pipeline_stop();
 }
+
+#pragma mark DECODE
 
 static void decode_thread(size_t thnum) {
     lzma_stream stream = LZMA_STREAM_INIT;
