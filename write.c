@@ -116,34 +116,43 @@ void pixz_write(bool tar, uint32_t level) {
 static void read_thread() {
     debug("reader: start");
     
-    struct archive *ar = archive_read_new();
-    archive_read_support_compression_none(ar);
-    if (gTar)
-        archive_read_support_format_tar(ar);
-    archive_read_support_format_raw(ar);
-    archive_read_open(ar, NULL, tar_ok, tar_read, tar_ok);
-    struct archive_entry *entry;
-    while (true) {
-        int aerr = archive_read_next_header(ar, &entry);
-        if (aerr == ARCHIVE_EOF) {
-            // TODO
-            break;
-        } else if (aerr != ARCHIVE_OK && aerr != ARCHIVE_WARN) {
-            // Some charset translations warn spuriously
-            fprintf(stderr, "%s\n", archive_error_string(ar));
-            die("Error reading archive entry");
-        }
+    if (gTar) {
+		struct archive *ar = archive_read_new();
+	    archive_read_support_compression_none(ar);
+	    archive_read_support_format_tar(ar);
+	    archive_read_support_format_raw(ar);
+	    archive_read_open(ar, NULL, tar_ok, tar_read, tar_ok);
+	    struct archive_entry *entry;
+	    while (true) {
+	        int aerr = archive_read_next_header(ar, &entry);
+	        if (aerr == ARCHIVE_EOF) {
+	            // TODO
+	            break;
+	        } else if (aerr != ARCHIVE_OK && aerr != ARCHIVE_WARN) {
+	            // Some charset translations warn spuriously
+	            fprintf(stderr, "%s\n", archive_error_string(ar));
+	            die("Error reading archive entry");
+	        }
         
-        if (archive_format(ar) == ARCHIVE_FORMAT_RAW)
-            gTar = false;
-        if (gTar) {
+	        if (archive_format(ar) == ARCHIVE_FORMAT_RAW) {
+	            gTar = false;
+				break;
+			}
             add_file(archive_read_header_position(ar),
                 archive_entry_pathname(entry));
-        }
-    }
-    archive_read_finish(ar);
+	    }
+		if (archive_read_header_position(ar) == 0)
+			gTar = false; // probably spuriously identified as tar
+    	archive_read_finish(ar);
+	}
+	if (!feof(gInFile)) {
+		const void *dummy;
+		while (tar_read(NULL, NULL, &dummy) != 0)
+			; // just keep pumping
+	}
     fclose(gInFile);
-    if (gTar)
+    
+	if (gTar)
         add_file(gTotalRead, NULL);
     
     // write last block, if necessary
