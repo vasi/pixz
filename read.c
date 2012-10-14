@@ -25,6 +25,7 @@ static void wanted_free(wanted_t *w);
 
 typedef struct {
     uint8_t *input, *output;
+	size_t incap, outcap;
     size_t insize, outsize;
     off_t uoffset; // uncompressed offset
 } io_block_t;
@@ -52,9 +53,8 @@ static void tar_write_last(void);
 #pragma mark DECLARE UTILS
 
 static lzma_vli gFileIndexOffset = 0;
-static size_t gBlockInSize = 0, gBlockOutSize = 0;
 
-static void set_block_sizes(void);
+static void check_capacity(io_block_t *ib, size_t incap, size_t outcap);
 
 
 #pragma mark MAIN
@@ -64,7 +64,6 @@ void pixz_read(bool verify, size_t nspecs, char **specs) {
     if (verify)
         gFileIndexOffset = read_file_index(0);
     wanted_files(nspecs, specs);
-    set_block_sizes();
 
 #if DEBUG
     for (wanted_t *w = gWantedFiles; w; w = w->next)
@@ -135,8 +134,8 @@ void pixz_read(bool verify, size_t nspecs, char **specs) {
 
 static void *block_create(void) {
     io_block_t *ib = malloc(sizeof(io_block_t));
-    ib->input = malloc(gBlockInSize);
-    ib->output = malloc(gBlockOutSize);
+	ib->incap = ib->outcap = 0;
+	ib->input = ib->output = NULL;
     return ib;
 }
 
@@ -149,25 +148,6 @@ static void block_free(void* data) {
 
 
 #pragma mark SETUP
-
-static void set_block_sizes() {
-    lzma_index_iter iter;
-    lzma_index_iter_init(&iter, gIndex);
-    while (!lzma_index_iter_next(&iter, LZMA_INDEX_ITER_BLOCK)) {
-        // exclude the file index block
-        lzma_vli off = iter.block.compressed_file_offset;
-        if (gFileIndexOffset && off == gFileIndexOffset)
-            continue;
-        
-        size_t in = iter.block.total_size,
-            out = iter.block.uncompressed_size;
-        if (out > gBlockOutSize)
-            gBlockOutSize = out;
-        if (in > gBlockInSize)
-            gBlockInSize = in;
-    }
-}
-
 
 static void wanted_free(wanted_t *w) {
     for (wanted_t *w = gWantedFiles; w; ) {
@@ -244,6 +224,17 @@ static void wanted_files(size_t count, char **specs) {
 
 #pragma mark THREADS
 
+static void check_capacity(io_block_t *ib, size_t incap, size_t outcap) {
+	if (incap > ib->incap) {
+		ib->incap = incap;
+		ib->input = malloc(incap);
+	}
+	if (outcap > ib->outcap) {
+		ib->outcap = outcap;
+		ib->output = malloc(outcap);
+	}
+}
+
 static void read_thread(void) {
     off_t offset = ftello(gInFile);
     wanted_t *w = gWantedFiles;
@@ -273,6 +264,8 @@ static void read_thread(void) {
         pipeline_item_t *pi;
         queue_pop(gPipelineStartQ, (void**)&pi);
         io_block_t *ib = (io_block_t*)(pi->data);
+		check_capacity(ib, iter.block.unpadded_size,
+			iter.block.uncompressed_size);
         
         // Seek if needed, and get the data
         if (offset != boffset) {
@@ -310,7 +303,7 @@ static void decode_thread(size_t thnum) {
         
         stream.avail_in = ib->insize - block.header_size;
         stream.next_in = ib->input + block.header_size;
-        stream.avail_out = gBlockOutSize;
+        stream.avail_out = ib->outcap;
         stream.next_out = ib->output;
         
         lzma_ret err = LZMA_OK;
