@@ -101,7 +101,7 @@ int main(int argc, char **argv) {
         die("Can't open input file");
     if (opath && !(gOutFile = fopen(opath, "w")))
         die("Can't open output file");
-    if (isatty(fileno(gOutFile)) == 1)
+    if (op != OP_LIST && isatty(fileno(gOutFile)) == 1)
 		usage("Refusing to output to a TTY");
 	
     switch (op) {
