@@ -229,9 +229,10 @@ static void read_file_index_data(void) {
     }
 }
 
-void decode_index(void) {
+bool decode_index(void) {
     if (fseek(gInFile, -LZMA_STREAM_HEADER_SIZE, SEEK_END) == -1)
-        die("Error seeking to stream footer");
+		return false; // not seekable
+	
     uint8_t hdrbuf[LZMA_STREAM_HEADER_SIZE];
     if (fread(hdrbuf, LZMA_STREAM_HEADER_SIZE, 1, gInFile) != 1)
         die("Error reading stream footer");
@@ -261,6 +262,7 @@ void decode_index(void) {
         if (err != LZMA_OK && err != LZMA_STREAM_END)
             die("Error decoding index");
     }
+	return true;
 }
 
 

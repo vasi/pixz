@@ -68,7 +68,7 @@ extern file_index_t *gFileIndex, *gLastFile;
 extern lzma_check gCheck;
 
 bool is_multi_header(const char *name);
-void decode_index(void);
+bool decode_index(void); // true on success
 
 lzma_vli find_file_index(void **bdatap);
 lzma_vli read_file_index(void);

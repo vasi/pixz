@@ -33,6 +33,7 @@ typedef struct {
 static void *block_create(void);
 static void block_free(void *data);
 static void read_thread(void);
+static void read_thread_noindex(void);
 static void decode_thread(size_t thnum);
 
 
@@ -60,17 +61,18 @@ static void check_capacity(io_block_t *ib, size_t incap, size_t outcap);
 #pragma mark MAIN
 
 void pixz_read(bool verify, size_t nspecs, char **specs) {
-    decode_index();
-    if (verify)
-        gFileIndexOffset = read_file_index();
-    wanted_files(nspecs, specs);
+    if (0 && decode_index()) { // FIXME
+	    if (verify)
+	        gFileIndexOffset = read_file_index();
+	    wanted_files(nspecs, specs);    	
+    }
 
 #if DEBUG
     for (wanted_t *w = gWantedFiles; w; w = w->next)
         debug("want: %s", w->name);
 #endif
     
-    pipeline_create(block_create, block_free, read_thread, decode_thread);
+    pipeline_create(block_create, block_free, read_thread_noindex, decode_thread);
     if (verify && gFileIndexOffset) {
         gArWanted = gWantedFiles;
         wanted_t *w = gWantedFiles, *wlast = NULL;
@@ -227,12 +229,72 @@ static void wanted_files(size_t count, char **specs) {
 static void check_capacity(io_block_t *ib, size_t incap, size_t outcap) {
 	if (incap > ib->incap) {
 		ib->incap = incap;
-		ib->input = malloc(incap);
+		ib->input = realloc(ib->input, incap);
 	}
 	if (outcap > ib->outcap) {
 		ib->outcap = outcap;
 		ib->output = malloc(outcap);
 	}
+}
+
+static void read_thread_noindex(void) {
+	size_t bytes;
+	lzma_ret err;
+	
+	// Read the header
+	uint8_t stream_header[LZMA_STREAM_HEADER_SIZE];
+	bytes = fread(stream_header, 1, LZMA_STREAM_HEADER_SIZE, gInFile);
+	if (bytes != LZMA_STREAM_HEADER_SIZE)
+		die("Error reading stream header");
+	lzma_stream_flags stream_flags;
+	err = lzma_stream_header_decode(&stream_flags, stream_header);
+	if (err == LZMA_FORMAT_ERROR)
+		die("Not an XZ file");
+	else if (err != LZMA_OK)
+		die("Error decoding XZ header");
+	gCheck = stream_flags.check;
+	
+    lzma_filter filters[LZMA_FILTERS_MAX + 1];
+    lzma_block block = { .filters = filters, .check = gCheck, .version = 0 };
+	while (true) {
+		// Get pipeline item
+        pipeline_item_t *pi;
+        queue_pop(gPipelineStartQ, (void**)&pi);
+        io_block_t *ib = (io_block_t*)(pi->data);
+		check_capacity(ib, LZMA_BLOCK_HEADER_SIZE_MAX, 0);
+		
+		// Check for index
+		if (fread(ib->input, 1, 1, gInFile) != 1)
+			die("Error reading block header size");
+		if (ib->input[0] == 0)
+			break; // Found the index
+		
+		// Decode header
+		block.header_size = lzma_block_header_size_decode(ib->input[0]);
+		if (block.header_size > LZMA_BLOCK_HEADER_SIZE_MAX)
+			die("Block header size too large");
+		size_t rest = block.header_size - 1;
+		if (fread(ib->input + 1, 1, rest, gInFile) != rest)
+			die("Error reading block header");
+		if (lzma_block_header_decode(&block, NULL, ib->input) != LZMA_OK)
+			die("Error decoding block header");
+		
+		lzma_vli comp = block.compressed_size;
+		ib->insize = lzma_block_total_size(&block);
+		ib->outsize = block.uncompressed_size;
+		if (comp == LZMA_VLI_UNKNOWN || ib->outsize == LZMA_VLI_UNKNOWN)
+			die("No sizes in header!!!"); // FIXME: streaming; file index
+		check_capacity(ib, ib->insize, ib->outsize);
+		
+		rest = ib->insize - block.header_size;
+		bytes = fread(ib->input + block.header_size, 1, rest, gInFile);
+		if (bytes != rest)
+			die("Error reading block contents");
+		pipeline_split(pi);
+	}
+	
+	pipeline_stop();
+	// FIXME: don't output the pixz file index! heuristic?
 }
 
 static void read_thread(void) {
