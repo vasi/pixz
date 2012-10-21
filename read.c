@@ -65,10 +65,15 @@ typedef enum {
 } rbuf_read_status;
 
 static rbuf_read_status rbuf_read(size_t bytes);
+static bool rbuf_cycle(lzma_stream *stream, bool start, size_t skip);
 static void rbuf_consume(size_t bytes);
 static void rbuf_dispatch(void);
 
+static bool read_header(void);
+static bool read_block(void);
 static void read_streaming(lzma_block *block);
+static void read_index(void);
+static void read_footer(void);
 
 
 #pragma mark DECLARE UTILS
@@ -179,6 +184,7 @@ static void wanted_free(wanted_t *w) {
     }
 }
 
+
 static bool spec_match(char *spec, char *name) {
     bool match = true;
     for (; *spec; ++spec, ++name) {
@@ -279,6 +285,17 @@ static rbuf_read_status rbuf_read(size_t bytes) {
 	return feof(gInFile) ? RBUF_EOF : RBUF_ERR;
 }
 
+static bool rbuf_cycle(lzma_stream *stream, bool start, size_t skip) {
+	if (!start) {
+		rbuf_consume(gRbuf->insize);
+		if (rbuf_read(CHUNKSIZE) < RBUF_PART)
+			return false;
+	}
+	stream->next_in = gRbuf->input + skip;
+	stream->avail_in = gRbuf->insize - skip;
+	return true;
+}
+
 static void rbuf_consume(size_t bytes) {
 	if (bytes < gRbuf->insize)
 		memmove(gRbuf->input, gRbuf->input + bytes, gRbuf->insize - bytes);
@@ -291,12 +308,60 @@ static void rbuf_dispatch(void) {
 	gRbuf = NULL;
 }
 
+
+static bool read_header(void) {
+	lzma_stream_flags stream_flags;
+	rbuf_read_status st = rbuf_read(LZMA_STREAM_HEADER_SIZE);
+	if (st == RBUF_EOF)
+		return false;
+	else if (st != RBUF_FULL)
+		die("Error reading stream header");
+	lzma_ret err = lzma_stream_header_decode(&stream_flags, gRbuf->input);
+	if (err == LZMA_FORMAT_ERROR)
+		die("Not an XZ file");
+	else if (err != LZMA_OK)
+		die("Error decoding XZ header");
+	gCheck = stream_flags.check;
+	rbuf_consume(LZMA_STREAM_HEADER_SIZE);
+	return true;
+}
+
+static bool read_block(void) {
+    lzma_filter filters[LZMA_FILTERS_MAX + 1];
+    lzma_block block = { .filters = filters, .check = gCheck, .version = 0 };
+	
+	if (rbuf_read(1) != RBUF_FULL)
+		die("Error reading block header size");
+	if (gRbuf->input[0] == 0)
+		return false;
+	
+	block.header_size = lzma_block_header_size_decode(gRbuf->input[0]);
+	if (block.header_size > LZMA_BLOCK_HEADER_SIZE_MAX)
+		die("Block header size too large");
+	if (rbuf_read(block.header_size) != RBUF_FULL)
+		die("Error reading block header");
+	if (lzma_block_header_decode(&block, NULL, gRbuf->input) != LZMA_OK)
+		die("Error decoding block header");
+		
+	size_t comp = block.compressed_size, outsize = block.uncompressed_size;
+	if (comp == LZMA_VLI_UNKNOWN || outsize == LZMA_VLI_UNKNOWN) {
+		read_streaming(&block);
+	} else {
+		block_capacity(gRbuf, 0, outsize);
+		gRbuf->outsize = outsize;
+		
+		if (rbuf_read(lzma_block_total_size(&block)) != RBUF_FULL)
+			die("Error reading block contents");
+		rbuf_dispatch();
+	}
+	return true;
+}
+
 static void read_streaming(lzma_block *block) {
     lzma_stream stream = LZMA_STREAM_INIT;
     if (lzma_block_decoder(&stream, block) != LZMA_OK)
 		die("Error initializing streaming block decode");
-	stream.next_in = gRbuf->input + block->header_size;
-	stream.avail_in = gRbuf->insize - block->header_size;
+	rbuf_cycle(&stream, true, block->header_size);
 	stream.avail_out = 0;
 	
     pipeline_item_t *pi = NULL;
@@ -318,13 +383,8 @@ static void read_streaming(lzma_block *block) {
 			stream.next_out = ib->output;
 			stream.avail_out = ib->outcap;
 		}
-		if (stream.avail_in == 0) {
-			rbuf_consume(gRbuf->insize);
-			if (rbuf_read(CHUNKSIZE) < RBUF_PART)
-				die("Error reading streaming block contents");
-			stream.next_in = gRbuf->input;
-			stream.avail_in = gRbuf->insize;
-		}
+		if (stream.avail_in == 0 && !rbuf_cycle(&stream, false, 0))
+			die("Error reading streaming block");
 		
 		err = lzma_code(&stream, LZMA_RUN);
 	}
@@ -337,54 +397,61 @@ static void read_streaming(lzma_block *block) {
 	lzma_end(&stream);
 }
 
-static void read_thread_noindex(void) {
-	size_t bytes;
-	lzma_ret err;
+static void read_index(void) {
+	// FIXME: verify it matches the blocks?
+    lzma_stream stream = LZMA_STREAM_INIT;
+	lzma_index *index;
+	if (lzma_index_decoder(&stream, &index, MEMLIMIT) != LZMA_OK)
+		die("Error initializing index decoder");
+	rbuf_cycle(&stream, true, 0);
 	
-	// Stream header
-	uint8_t stream_header[LZMA_STREAM_HEADER_SIZE];
-	bytes = fread(stream_header, 1, LZMA_STREAM_HEADER_SIZE, gInFile);
-	if (bytes != LZMA_STREAM_HEADER_SIZE)
-		die("Error reading stream header");
-	lzma_stream_flags stream_flags;
-	err = lzma_stream_header_decode(&stream_flags, stream_header);
-	if (err == LZMA_FORMAT_ERROR)
-		die("Not an XZ file");
-	else if (err != LZMA_OK)
-		die("Error decoding XZ header");
-	gCheck = stream_flags.check;
-	
-    lzma_filter filters[LZMA_FILTERS_MAX + 1];
-    lzma_block block = { .filters = filters, .check = gCheck, .version = 0 };
-	while (true) {
-		if (rbuf_read(1) != RBUF_FULL)
-			die("Error reading block header size");
-		if (gRbuf->input[0] == 0)
-			break; // Found the index. FIXME: multi-stream?
-				
-		block.header_size = lzma_block_header_size_decode(gRbuf->input[0]);
-		if (block.header_size > LZMA_BLOCK_HEADER_SIZE_MAX)
-			die("Block header size too large");
-		if (rbuf_read(block.header_size) != RBUF_FULL)
-			die("Error reading block header");
-		if (lzma_block_header_decode(&block, NULL, gRbuf->input) != LZMA_OK)
-			die("Error decoding block header");
-		
-		size_t comp = block.compressed_size, outsize = block.uncompressed_size;
-		if (comp == LZMA_VLI_UNKNOWN || outsize == LZMA_VLI_UNKNOWN) {
-			read_streaming(&block);
-		} else {
-			block_capacity(gRbuf, 0, outsize);
-			gRbuf->outsize = outsize;
-		
-			if (rbuf_read(lzma_block_total_size(&block)) != RBUF_FULL)
-				die("Error reading block contents");
-			rbuf_dispatch();
-		}
+	lzma_ret err = LZMA_OK;
+	while (err != LZMA_STREAM_END) {
+		if (err != LZMA_OK)
+			die("Error decoding index");
+		if (stream.avail_in == 0 && !rbuf_cycle(&stream, false, 0))
+			die("Error reading index");
+		err = lzma_code(&stream, LZMA_RUN);
 	}
+	rbuf_consume(gRbuf->insize - stream.avail_in);
+	lzma_end(&stream);
+}
+
+static void read_footer(void) {
+	// FIXME: compare with header?
+	lzma_stream_flags stream_flags;
+	if (rbuf_read(LZMA_STREAM_HEADER_SIZE) != RBUF_FULL)
+		die("Error reading stream footer");
+	if (lzma_stream_footer_decode(&stream_flags, gRbuf->input) != LZMA_OK)
+		die("Error decoding XZ footer");
+	rbuf_consume(LZMA_STREAM_HEADER_SIZE);
 	
+	char zeros[4] = "\0\0\0\0";
+	while (true) {
+		rbuf_read_status st = rbuf_read(4);
+		if (st == RBUF_EOF)
+			return;
+		if (st != RBUF_FULL)
+			die("Footer must be multiple of four bytes");
+		if (memcmp(zeros, gRbuf->input, 4) != 0)
+			return;
+		rbuf_consume(4);
+	}
+}
+
+static void read_thread_noindex(void) {
+	bool empty = true;
+	while (read_header()) {
+		empty = false;
+		while (read_block())
+			; // pass
+		read_index();
+		read_footer();
+		// FIXME: don't output the pixz file index! heuristic?
+	}
+	if (empty)
+		die("Empty input");
 	pipeline_stop();
-	// FIXME: don't output the pixz file index! heuristic?
 }
 
 static void read_thread(void) {
