@@ -51,11 +51,22 @@ static bool tar_next_block(void);
 static void tar_write_last(void);
 
 
+#pragma mark DECLARE READ BUFFER
+
+static pipeline_item_t *gRbufPI = NULL;
+static io_block_t *gRbuf = NULL;
+
+static void block_capacity(io_block_t *ib, size_t incap, size_t outcap);
+static void stream_write(pipeline_item_t *pi);
+
+static ssize_t rbuf_read(size_t bytes);
+static void rbuf_consume(size_t bytes);
+static void rbuf_dispatch();
+
+
 #pragma mark DECLARE UTILS
 
 static lzma_vli gFileIndexOffset = 0;
-
-static void check_capacity(io_block_t *ib, size_t incap, size_t outcap);
 
 
 #pragma mark MAIN
@@ -228,7 +239,7 @@ static void wanted_files(size_t count, char **specs) {
 
 #pragma mark READ
 
-static void check_capacity(io_block_t *ib, size_t incap, size_t outcap) {
+static void block_capacity(io_block_t *ib, size_t incap, size_t outcap) {
 	if (incap > ib->incap) {
 		ib->incap = incap;
 		ib->input = realloc(ib->input, incap);
@@ -263,7 +274,7 @@ static void read_thread_noindex(void) {
         pipeline_item_t *pi;
         queue_pop(gPipelineStartQ, (void**)&pi);
         io_block_t *ib = (io_block_t*)(pi->data);
-		check_capacity(ib, LZMA_BLOCK_HEADER_SIZE_MAX, 0);
+		block_capacity(ib, LZMA_BLOCK_HEADER_SIZE_MAX, 0);
 		
 		// Check for index
 		if (ib->insize < 1 && fread(ib->input, 1, 1, gInFile) != 1)
@@ -286,7 +297,7 @@ static void read_thread_noindex(void) {
 		ib->outsize = block.uncompressed_size;
 		if (comp == LZMA_VLI_UNKNOWN || ib->outsize == LZMA_VLI_UNKNOWN)
 			die("No sizes in header!!!"); // FIXME: streaming; file index
-		check_capacity(ib, ib->insize, ib->outsize);
+		block_capacity(ib, ib->insize, ib->outsize);
 		
 		rest = ib->insize - block.header_size;
 		bytes = fread(ib->input + block.header_size, 1, rest, gInFile);
@@ -328,7 +339,7 @@ static void read_thread(void) {
         pipeline_item_t *pi;
         queue_pop(gPipelineStartQ, (void**)&pi);
         io_block_t *ib = (io_block_t*)(pi->data);
-		check_capacity(ib, iter.block.unpadded_size,
+		block_capacity(ib, iter.block.unpadded_size,
 			iter.block.uncompressed_size);
         
         // Seek if needed, and get the data
