@@ -135,5 +135,6 @@ void pipeline_create(
 void pipeline_stop(void);
 void pipeline_destroy(void);
 
+void pipeline_dispatch(pipeline_item_t *item, queue_t *q);
 void pipeline_split(pipeline_item_t *item);
 pipeline_item_t *pipeline_merged();

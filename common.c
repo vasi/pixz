@@ -437,10 +437,14 @@ void pipeline_destroy(void) {
     free(gPLProcessThreads);
 }
 
-void pipeline_split(pipeline_item_t *item) {
+void pipeline_dispatch(pipeline_item_t *item, queue_t *q) {
     item->seq = gPLSplitSeq++;
     item->next = NULL;
-    queue_push(gPipelineSplitQ, PIPELINE_ITEM, item);
+    queue_push(q, PIPELINE_ITEM, item);
+}
+
+void pipeline_split(pipeline_item_t *item) {
+	pipeline_dispatch(item, gPipelineSplitQ);
 }
 
 pipeline_item_t *pipeline_merged() {
