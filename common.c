@@ -259,7 +259,7 @@ static off_t stream_padding(bw *b, off_t pos) {
 	b->pos = pos;
 	b->size = 0;
 	
-	for (off_t pad = 0; true; ++pad) {
+	for (off_t pad = 0; true; pad += sizeof(uint32_t)) {
 		uint32_t *i = bw_read(b);
 		if (!i)
 			die("Error reading stream padding");
@@ -333,7 +333,13 @@ bool decode_index(void) {
 		return false; // not seekable
 	off_t pos = ftello(gInFile);
 	
-	gIndex = next_index(&pos);
+	gIndex = NULL;
+	while (pos > 0) {
+		lzma_index *index = next_index(&pos);
+		if (gIndex && lzma_index_cat(index, gIndex, NULL) != LZMA_OK)
+			die("Error concatenating indices");
+		gIndex = index;
+	}
 	
 	return true;
 }
