@@ -55,6 +55,7 @@ static void tar_write_last(void);
 #pragma mark DECLARE READ BUFFER
 
 #define STREAMSIZE (1024 * 1024)
+#define MAXSPLITSIZE (64 * 1024 * 1024) // xz -9 blocksize
 
 static pipeline_item_t *gRbufPI = NULL;
 static io_block_t *gRbuf = NULL;
@@ -71,7 +72,7 @@ static void rbuf_consume(size_t bytes);
 static void rbuf_dispatch(void);
 
 static bool read_header(lzma_check *check);
-static bool read_block(lzma_check check);
+static bool read_block(bool force_stream, lzma_check check);
 static void read_streaming(lzma_block *block);
 static void read_index(void);
 static void read_footer(void);
@@ -328,7 +329,7 @@ static bool read_header(lzma_check *check) {
 	return true;
 }
 
-static bool read_block(lzma_check check) {
+static bool read_block(bool force_stream, lzma_check check) {
     lzma_filter filters[LZMA_FILTERS_MAX + 1];
     lzma_block block = { .filters = filters, .check = check, .version = 0 };
 	
@@ -346,7 +347,9 @@ static bool read_block(lzma_check check) {
 		die("Error decoding block header");
 		
 	size_t comp = block.compressed_size, outsize = block.uncompressed_size;
-	if (comp == LZMA_VLI_UNKNOWN || outsize == LZMA_VLI_UNKNOWN) {
+	if (force_stream || comp == LZMA_VLI_UNKNOWN
+			|| outsize == LZMA_VLI_UNKNOWN
+			|| outsize > MAXSPLITSIZE) {
 		read_streaming(&block);
 	} else {
 		block_capacity(gRbuf, 0, outsize);
@@ -447,7 +450,7 @@ static void read_thread_noindex(void) {
 	lzma_check check = LZMA_CHECK_NONE;
 	while (read_header(&check)) {
 		empty = false;
-		while (read_block(check))
+		while (read_block(false, check))
 			; // pass
 		read_index();
 		read_footer();
@@ -494,15 +497,22 @@ static void read_thread(void) {
         if (offset != boffset) {
             fseeko(gInFile, boffset, SEEK_SET);
             offset = boffset;
-        }        
-        ib->insize = fread(ib->input, 1, bsize, gInFile);
-        if (ib->insize < bsize)
-            die("Error reading block contents");
-        offset += bsize;
-        ib->uoffset = iter.block.uncompressed_file_offset;
-		ib->check = iter.stream.flags->check;
+        }
+		
+		if (iter.block.uncompressed_size > MAXSPLITSIZE) { // must stream
+			if (gRbuf)
+				rbuf_consume(gRbuf->insize); // clear
+			read_block(true, iter.stream.flags->check);
+		} else {
+	        ib->insize = fread(ib->input, 1, bsize, gInFile);
+	        if (ib->insize < bsize)
+	            die("Error reading block contents");
+	        offset += bsize;
+	        ib->uoffset = iter.block.uncompressed_file_offset;
+			ib->check = iter.stream.flags->check;
         
-        pipeline_split(pi);
+	        pipeline_split(pi);
+		}
     }
     
     pipeline_stop();
