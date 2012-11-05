@@ -229,39 +229,112 @@ static void read_file_index_data(void) {
     }
 }
 
-bool decode_index(void) {
-    if (fseek(gInFile, -LZMA_STREAM_HEADER_SIZE, SEEK_END) == -1)
-		return false; // not seekable
+
+#define BWCHUNK 512
+
+typedef struct {
+	uint8_t buf[BWCHUNK];
+	off_t pos;
+	size_t size;
+} bw;
+
+static uint32_t *bw_read(bw *b) {
+	size_t sz = sizeof(uint32_t);
+	if (b->size < sz) {
+		if (b->pos < sz)
+			return NULL; // EOF
+		b->size = (b->pos > BWCHUNK) ? BWCHUNK : b->pos;
+		b->pos -= b->size;
+		if (fseeko(gInFile, b->pos, SEEK_SET) == -1)
+			return NULL;
+		if (fread(b->buf, b->size, 1, gInFile) != 1)
+			return NULL;
+	}
 	
-    uint8_t hdrbuf[LZMA_STREAM_HEADER_SIZE];
-    if (fread(hdrbuf, LZMA_STREAM_HEADER_SIZE, 1, gInFile) != 1)
-        die("Error reading stream footer");
-    lzma_stream_flags flags;
-    if (lzma_stream_footer_decode(&flags, hdrbuf) != LZMA_OK)
+	b->size -= sz;
+	return &((uint32_t*)b->buf)[b->size / sz];
+}
+
+static off_t stream_padding(bw *b, off_t pos) {
+	b->pos = pos;
+	b->size = 0;
+	
+	for (off_t pad = 0; true; ++pad) {
+		uint32_t *i = bw_read(b);
+		if (!i)
+			die("Error reading stream padding");
+		if (*i != 0) {
+			b->size += sizeof(uint32_t);
+			return pad;
+		}
+	}
+}
+
+static void stream_footer(bw *b, lzma_stream_flags *flags) {
+	uint8_t ftr[LZMA_STREAM_HEADER_SIZE];
+	for (int i = sizeof(ftr) / sizeof(uint32_t) - 1; i >= 0; --i) {
+		uint32_t *p = bw_read(b);
+		if (!p)
+			die("Error reading stream footer");
+		*((uint32_t*)ftr + i) = *p;
+	}
+	
+    if (lzma_stream_footer_decode(flags, ftr) != LZMA_OK)
         die("Error decoding stream footer");
-    
-    gCheck = flags.check;
-    size_t index_seek = -LZMA_STREAM_HEADER_SIZE - flags.backward_size;
-    if (fseek(gInFile, index_seek, SEEK_CUR) == -1)
+	gCheck = flags->check; // FIXME: multiple streams
+}
+
+static lzma_index *next_index(off_t *pos) {
+	bw b;
+	off_t pad = stream_padding(&b, *pos);
+	off_t eos = *pos - pad;
+	
+	lzma_stream_flags flags;
+	stream_footer(&b, &flags);
+	*pos = eos - LZMA_STREAM_HEADER_SIZE - flags.backward_size;
+    if (fseeko(gInFile, *pos, SEEK_SET) == -1)
         die("Error seeking to index");
-    if (lzma_index_decoder(&gStream, &gIndex, MEMLIMIT) != LZMA_OK)
+	
+	lzma_stream strm = LZMA_STREAM_INIT;
+	lzma_index *index;
+    if (lzma_index_decoder(&strm, &index, MEMLIMIT) != LZMA_OK)
         die("Error creating index decoder");
     
     uint8_t ibuf[CHUNKSIZE];
-    gStream.avail_in = 0;
+    strm.avail_in = 0;
     lzma_ret err = LZMA_OK;
     while (err != LZMA_STREAM_END) {
-        if (gStream.avail_in == 0) {
-            gStream.avail_in = fread(ibuf, 1, CHUNKSIZE, gInFile);
+        if (strm.avail_in == 0) {
+            strm.avail_in = fread(ibuf, 1, CHUNKSIZE, gInFile);
             if (ferror(gInFile))
                 die("Error reading index");
-            gStream.next_in = ibuf;
+            strm.next_in = ibuf;
         }
         
-        err = lzma_code(&gStream, LZMA_RUN);
+        err = lzma_code(&strm, LZMA_RUN);
         if (err != LZMA_OK && err != LZMA_STREAM_END)
             die("Error decoding index");
     }
+	
+	*pos = eos - lzma_index_stream_size(index);
+	if (fseeko(gInFile, *pos, SEEK_SET) == -1)
+		die("Error seeking to beginning of stream");
+	
+	
+	if (lzma_index_stream_flags(index, &flags) != LZMA_OK)
+		die("Error setting stream flags");
+	if (lzma_index_stream_padding(index, pad) != LZMA_OK)
+		die("Error setting stream padding");
+	return index;
+}
+
+bool decode_index(void) {
+    if (fseeko(gInFile, 0, SEEK_END) == -1)
+		return false; // not seekable
+	off_t pos = ftello(gInFile);
+	
+	gIndex = next_index(&pos);
+	
 	return true;
 }
 
