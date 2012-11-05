@@ -45,6 +45,7 @@ static off_t gArLastOffset;
 static size_t gArLastSize;
 static wanted_t *gArWanted = NULL;
 static bool gArNextItem = false;
+static bool gExplicitFiles = false;
 
 static int tar_ok(struct archive *ar, void *ref);
 static ssize_t tar_read(struct archive *ar, void *ref, const void **bufp);
@@ -86,10 +87,11 @@ static lzma_vli gFileIndexOffset = 0;
 #pragma mark MAIN
 
 void pixz_read(bool verify, size_t nspecs, char **specs) {
-    if (decode_index()) { // FIXME
+    if (decode_index()) {
 	    if (verify)
 	        gFileIndexOffset = read_file_index();
-	    wanted_files(nspecs, specs);    	
+	    wanted_files(nspecs, specs);
+		gExplicitFiles = nspecs;
     }
 
 #if DEBUG
@@ -100,7 +102,6 @@ void pixz_read(bool verify, size_t nspecs, char **specs) {
     pipeline_create(block_create, block_free,
 		gIndex ? read_thread : read_thread_noindex, decode_thread);
     if (verify && gFileIndexOffset) {
-		// FIXME: verify this works with noindex/streamed reading
 		// FIXME: don't stop on End Of Archive
         gArWanted = gWantedFiles;
         wanted_t *w = gWantedFiles, *wlast = NULL;
@@ -146,7 +147,8 @@ void pixz_read(bool verify, size_t nspecs, char **specs) {
         if (w && w->name)
             die("File %s missing in archive", w->name);
         tar_write_last(); // write whatever's left
-    } else {
+    }
+	if (!gExplicitFiles) {
         pipeline_item_t *pi;
         while ((pi = pipeline_merged())) {
             io_block_t *ib = (io_block_t*)(pi->data);
@@ -475,7 +477,7 @@ static void read_thread(void) {
             continue;
         
         // Do we need this block?
-        if (gWantedFiles) {
+        if (gWantedFiles && gExplicitFiles) {
             off_t uend = iter.block.uncompressed_file_offset +
                 iter.block.uncompressed_size;
             if (!w || w->start >= uend) {
@@ -565,7 +567,7 @@ static int tar_ok(struct archive *ar, void *ref) {
 }
 
 static bool tar_next_block(void) {
-    if (gArItem && !gArNextItem && gArWanted) {
+    if (gArItem && !gArNextItem && gArWanted && gExplicitFiles) {
         io_block_t *ib = (io_block_t*)(gArItem->data);
         if (gArWanted->start < ib->uoffset + ib->outsize)
             return true; // No need
@@ -598,7 +600,7 @@ static ssize_t tar_read(struct archive *ar, void *ref, const void **bufp) {
     off_t off;
     size_t size;
     io_block_t *ib = (io_block_t*)(gArItem->data);
-    if (gWantedFiles) {
+    if (gWantedFiles && gExplicitFiles) {
         debug("tar want: %s", gArWanted->name);
         off = gArWanted->start - ib->uoffset;
         size = gArWanted->size;

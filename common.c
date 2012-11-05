@@ -342,7 +342,7 @@ bool decode_index(void) {
 		gIndex = index;
 	}
 	
-	return true;
+	return (gIndex != NULL);
 }
 
 
