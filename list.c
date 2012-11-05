@@ -3,7 +3,9 @@
 #pragma mark FUNCTION DEFINITIONS
 
 void pixz_list(bool tar) {
-    decode_index();
+    if (!decode_index())
+		die("Can't list non-seekable input");
+	
     lzma_index_iter iter;
     lzma_index_iter_init(&iter, gIndex);
 

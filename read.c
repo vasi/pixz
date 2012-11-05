@@ -85,7 +85,7 @@ static lzma_vli gFileIndexOffset = 0;
 #pragma mark MAIN
 
 void pixz_read(bool verify, size_t nspecs, char **specs) {
-    if (0 && decode_index()) { // FIXME
+    if (decode_index()) { // FIXME
 	    if (verify)
 	        gFileIndexOffset = read_file_index();
 	    wanted_files(nspecs, specs);    	
@@ -96,7 +96,8 @@ void pixz_read(bool verify, size_t nspecs, char **specs) {
         debug("want: %s", w->name);
 #endif
     
-    pipeline_create(block_create, block_free, read_thread_noindex, decode_thread);
+    pipeline_create(block_create, block_free,
+		gIndex ? read_thread : read_thread_noindex, decode_thread);
     if (verify && gFileIndexOffset) {
 		// FIXME: verify this works with noindex/streamed reading
 		// FIXME: don't stop on End Of Archive
