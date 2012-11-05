@@ -23,12 +23,16 @@ static void wanted_free(wanted_t *w);
 
 #pragma mark DECLARE PIPELINE
 
+typedef enum { BLOCK_SIZED, BLOCK_UNSIZED, BLOCK_CONTINUATION } block_type;
+
 typedef struct {
     uint8_t *input, *output;
 	size_t incap, outcap;
     size_t insize, outsize;
     off_t uoffset; // uncompressed offset
 	lzma_check check;
+	
+	block_type btype;
 } io_block_t;
 
 static void *block_create(void);
@@ -83,6 +87,9 @@ static void read_footer(void);
 
 static lzma_vli gFileIndexOffset = 0;
 
+static bool taste_tar(io_block_t *ib);
+static bool taste_file_index(io_block_t *ib);
+
 
 #pragma mark MAIN
 
@@ -99,6 +106,7 @@ void pixz_read(bool verify, size_t nspecs, char **specs) {
         debug("want: %s", w->name);
 #endif
     
+	bool first = true;
     pipeline_create(block_create, block_free,
 		gIndex ? read_thread : read_thread_noindex, decode_thread);
     if (verify && gFileIndexOffset) {
@@ -144,15 +152,36 @@ void pixz_read(bool verify, size_t nspecs, char **specs) {
             wlast = w;
             w = w->next;
         }
+		archive_read_finish(ar);
         if (w && w->name)
             die("File %s missing in archive", w->name);
         tar_write_last(); // write whatever's left
+		first = false;
     }
 	if (!gExplicitFiles) {
-        pipeline_item_t *pi;
+		bool tar = false;
+		bool all_sized = true;
+        bool skipping = false;
+		
+		pipeline_item_t *pi;
         while ((pi = pipeline_merged())) {
             io_block_t *ib = (io_block_t*)(pi->data);
-            fwrite(ib->output, ib->outsize, 1, gOutFile);
+			if (first) {
+				tar = taste_tar(ib);
+				first = false;
+			}
+			if (skipping && ib->btype != BLOCK_CONTINUATION) {
+				die("File index heuristic failed, retry with -t flag");
+				skipping = false;
+			}
+			if (verify && !skipping && !first && tar && all_sized
+					&& ib->btype == BLOCK_UNSIZED && taste_file_index(ib))
+				skipping = true;
+			if (ib->btype != BLOCK_SIZED)
+				all_sized = false;
+			
+			if (!skipping)
+				fwrite(ib->output, ib->outsize, 1, gOutFile);
             queue_push(gPipelineStartQ, PIPELINE_ITEM, pi);
         }
     }
@@ -357,6 +386,7 @@ static bool read_block(bool force_stream, lzma_check check) {
 		block_capacity(gRbuf, 0, outsize);
 		gRbuf->outsize = outsize;
 		gRbuf->check = check;
+		gRbuf->btype = BLOCK_SIZED;
 		
 		if (rbuf_read(lzma_block_total_size(&block)) != RBUF_FULL)
 			die("Error reading block contents");
@@ -372,6 +402,7 @@ static void read_streaming(lzma_block *block) {
 	rbuf_cycle(&stream, true, block->header_size);
 	stream.avail_out = 0;
 	
+	bool first = true;
     pipeline_item_t *pi = NULL;
     io_block_t *ib = NULL;
     
@@ -384,9 +415,11 @@ static void read_streaming(lzma_block *block) {
 			if (ib) {
 				ib->outsize = ib->outcap;
 				pipeline_dispatch(pi, gPipelineMergeQ);
+				first = false;
 			}
 			queue_pop(gPipelineStartQ, (void**)&pi);
 			ib = (io_block_t*)pi->data;
+			ib->btype = (first ? BLOCK_UNSIZED : BLOCK_CONTINUATION);
 			block_capacity(ib, 0, STREAMSIZE);
 			stream.next_out = ib->output;
 			stream.avail_out = ib->outcap;
@@ -512,7 +545,8 @@ static void read_thread(void) {
 	        offset += bsize;
 	        ib->uoffset = iter.block.uncompressed_file_offset;
 			ib->check = iter.stream.flags->check;
-        
+			ib->btype = BLOCK_SIZED;
+			
 	        pipeline_split(pi);
 		}
     }
@@ -625,4 +659,22 @@ static ssize_t tar_read(struct archive *ar, void *ref, const void **bufp) {
     if (bufp)
         *bufp = ib->output + off;
     return size;
+}
+
+
+#pragma mark UTILS
+
+static bool taste_tar(io_block_t *ib) {
+    struct archive *ar = archive_read_new();
+    archive_read_support_compression_none(ar);
+    archive_read_support_format_tar(ar);
+    archive_read_open_memory(ar, ib->output, ib->outsize);
+    struct archive_entry *entry;
+    bool ok = (archive_read_next_header(ar, &entry) == ARCHIVE_OK);
+	archive_read_finish(ar);
+	return ok;
+}
+
+static bool taste_file_index(io_block_t *ib) {
+	return xle64dec(ib->output) == PIXZ_INDEX_MAGIC;
 }
