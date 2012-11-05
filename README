@@ -1,7 +1,5 @@
 Pixz (pronounced 'pixie') is a parallel, indexing version of XZ: https://github.com/vasi/pixz
 
-[![Flattr this git repo](http://api.flattr.com/button/flattr-badge-large.png)](https://flattr.com/submit/auto?user_id=vasi&url=https://github.com/vasi/pixz&title=pixz&language=&tags=github&category=software)
-
 The existing XZ Utils ( http://tukaani.org/xz/ ) provide great compression in the .xz file format, but they have two significant problems:
 
 * They are single-threaded, while most users nowadays have multi-core computers.
