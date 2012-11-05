@@ -5,15 +5,8 @@
 
 #pragma mark UTILS
 
-typedef struct {
-    lzma_block block;
-    lzma_filter filters[LZMA_FILTERS_MAX + 1];
-} block_wrapper_t;
-
 FILE *gInFile = NULL;
 lzma_stream gStream = LZMA_STREAM_INIT;
-
-lzma_check gCheck = LZMA_CHECK_NONE;
 
 
 void die(const char *fmt, ...) {
@@ -36,32 +29,6 @@ char *xstrdup(const char *s) {
     return memcpy(r, s, len + 1); 
 }
 
-void *decode_block_start(off_t block_seek) {
-    if (fseeko(gInFile, block_seek, SEEK_SET) == -1)
-        die("Error seeking to block");
-    
-    // Some memory in which to keep the discovered filters safe
-    block_wrapper_t *bw = malloc(sizeof(block_wrapper_t));
-    bw->block = (lzma_block){ .check = gCheck, .filters = bw->filters,
-	 	.version = 0 };
-    
-    int b = fgetc(gInFile);
-    if (b == EOF || b == 0)
-        die("Error reading block size");
-    bw->block.header_size = lzma_block_header_size_decode(b);
-    uint8_t hdrbuf[bw->block.header_size];
-    hdrbuf[0] = (uint8_t)b;
-    if (fread(hdrbuf + 1, bw->block.header_size - 1, 1, gInFile) != 1)
-        die("Error reading block header");
-    if (lzma_block_header_decode(&bw->block, NULL, hdrbuf) != LZMA_OK)
-        die("Error decoding file index block header");
-    
-    if (lzma_block_decoder(&gStream, &bw->block) != LZMA_OK)
-        die("Error initializing file index stream");
-    
-    return bw;
-}
-
 bool is_multi_header(const char *name) {
     size_t i = strlen(name);
     while (i != 0 && name[i - 1] != '/')
@@ -81,6 +48,9 @@ static size_t gFIBSize = CHUNKSIZE, gFIBPos = 0;
 static lzma_ret gFIBErr = LZMA_OK;
 static uint8_t gFIBInputBuf[CHUNKSIZE];
 static size_t gMoved = 0;
+
+static void *decode_file_index_start(off_t block_seek, lzma_check check);
+static lzma_vli find_file_index(void **bdatap);
 
 static char *read_file_index_name(void);
 static void read_file_index_make_space(void);
@@ -109,7 +79,38 @@ void free_file_index(void) {
     gFileIndex = gLastFile = NULL;
 }
 
-lzma_vli find_file_index(void **bdatap) {
+typedef struct {
+    lzma_block block;
+    lzma_filter filters[LZMA_FILTERS_MAX + 1];
+} block_wrapper_t;
+
+static void *decode_file_index_start(off_t block_seek, lzma_check check) {
+    if (fseeko(gInFile, block_seek, SEEK_SET) == -1)
+        die("Error seeking to block");
+    
+    // Some memory in which to keep the discovered filters safe
+    block_wrapper_t *bw = malloc(sizeof(block_wrapper_t));
+    bw->block = (lzma_block){ .check = check, .filters = bw->filters,
+	 	.version = 0 };
+    
+    int b = fgetc(gInFile);
+    if (b == EOF || b == 0)
+        die("Error reading block size");
+    bw->block.header_size = lzma_block_header_size_decode(b);
+    uint8_t hdrbuf[bw->block.header_size];
+    hdrbuf[0] = (uint8_t)b;
+    if (fread(hdrbuf + 1, bw->block.header_size - 1, 1, gInFile) != 1)
+        die("Error reading block header");
+    if (lzma_block_header_decode(&bw->block, NULL, hdrbuf) != LZMA_OK)
+        die("Error decoding file index block header");
+    
+    if (lzma_block_decoder(&gStream, &bw->block) != LZMA_OK)
+        die("Error initializing file index stream");
+    
+    return bw;
+}
+
+static lzma_vli find_file_index(void **bdatap) {
     if (!gIndex)
         decode_index();
         
@@ -119,7 +120,8 @@ lzma_vli find_file_index(void **bdatap) {
     lzma_vli loc = lzma_index_uncompressed_size(gIndex) - 1;
     if (lzma_index_iter_locate(&iter, loc))
         die("Can't locate file index block");
-    void *bdata = decode_block_start(iter.block.compressed_file_offset);
+    void *bdata = decode_file_index_start(iter.block.compressed_file_offset,
+		iter.stream.flags->check);
     
     gFileIndexBuf = malloc(gFIBSize);
     gStream.avail_out = gFIBSize;
@@ -281,7 +283,6 @@ static void stream_footer(bw *b, lzma_stream_flags *flags) {
 	
     if (lzma_stream_footer_decode(flags, ftr) != LZMA_OK)
         die("Error decoding stream footer");
-	gCheck = flags->check; // FIXME: multiple streams
 }
 
 static lzma_index *next_index(off_t *pos) {

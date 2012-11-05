@@ -50,8 +50,6 @@ uint64_t xle64dec(const uint8_t *d);
 void xle64enc(uint8_t *d, uint64_t n);
 size_t num_threads(void);
 
-void *decode_block_start(off_t block_seek);
-
 
 #pragma mark INDEX
 
@@ -64,13 +62,9 @@ struct file_index_t {
 
 extern file_index_t *gFileIndex, *gLastFile;
 
-// As discovered from footer
-extern lzma_check gCheck;
-
 bool is_multi_header(const char *name);
 bool decode_index(void); // true on success
 
-lzma_vli find_file_index(void **bdatap);
 lzma_vli read_file_index(void);
 void dump_file_index(FILE *out, bool verbose);
 void free_file_index(void);

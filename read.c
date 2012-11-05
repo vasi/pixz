@@ -28,6 +28,7 @@ typedef struct {
 	size_t incap, outcap;
     size_t insize, outsize;
     off_t uoffset; // uncompressed offset
+	lzma_check check;
 } io_block_t;
 
 static void *block_create(void);
@@ -69,8 +70,8 @@ static bool rbuf_cycle(lzma_stream *stream, bool start, size_t skip);
 static void rbuf_consume(size_t bytes);
 static void rbuf_dispatch(void);
 
-static bool read_header(void);
-static bool read_block(void);
+static bool read_header(lzma_check *check);
+static bool read_block(lzma_check check);
 static void read_streaming(lzma_block *block);
 static void read_index(void);
 static void read_footer(void);
@@ -309,7 +310,7 @@ static void rbuf_dispatch(void) {
 }
 
 
-static bool read_header(void) {
+static bool read_header(lzma_check *check) {
 	lzma_stream_flags stream_flags;
 	rbuf_read_status st = rbuf_read(LZMA_STREAM_HEADER_SIZE);
 	if (st == RBUF_EOF)
@@ -321,14 +322,14 @@ static bool read_header(void) {
 		die("Not an XZ file");
 	else if (err != LZMA_OK)
 		die("Error decoding XZ header");
-	gCheck = stream_flags.check;
+	*check = stream_flags.check;
 	rbuf_consume(LZMA_STREAM_HEADER_SIZE);
 	return true;
 }
 
-static bool read_block(void) {
+static bool read_block(lzma_check check) {
     lzma_filter filters[LZMA_FILTERS_MAX + 1];
-    lzma_block block = { .filters = filters, .check = gCheck, .version = 0 };
+    lzma_block block = { .filters = filters, .check = check, .version = 0 };
 	
 	if (rbuf_read(1) != RBUF_FULL)
 		die("Error reading block header size");
@@ -349,6 +350,7 @@ static bool read_block(void) {
 	} else {
 		block_capacity(gRbuf, 0, outsize);
 		gRbuf->outsize = outsize;
+		gRbuf->check = check;
 		
 		if (rbuf_read(lzma_block_total_size(&block)) != RBUF_FULL)
 			die("Error reading block contents");
@@ -441,9 +443,10 @@ static void read_footer(void) {
 
 static void read_thread_noindex(void) {
 	bool empty = true;
-	while (read_header()) {
+	lzma_check check = LZMA_CHECK_NONE;
+	while (read_header(&check)) {
 		empty = false;
-		while (read_block())
+		while (read_block(check))
 			; // pass
 		read_index();
 		read_footer();
@@ -496,6 +499,7 @@ static void read_thread(void) {
             die("Error reading block contents");
         offset += bsize;
         ib->uoffset = iter.block.uncompressed_file_offset;
+		ib->check = iter.stream.flags->check;
         
         pipeline_split(pi);
     }
@@ -508,7 +512,8 @@ static void read_thread(void) {
 static void decode_thread(size_t thnum) {
     lzma_stream stream = LZMA_STREAM_INIT;
     lzma_filter filters[LZMA_FILTERS_MAX + 1];
-    lzma_block block = { .filters = filters, .check = gCheck, .version = 0 };
+    lzma_block block = { .filters = filters, .check = LZMA_CHECK_NONE,
+		.version = 0 };
     
     pipeline_item_t *pi;
     io_block_t *ib;
@@ -517,7 +522,8 @@ static void decode_thread(size_t thnum) {
         ib = (io_block_t*)(pi->data);
         
         block.header_size = lzma_block_header_size_decode(*(ib->input));
-        if (lzma_block_header_decode(&block, NULL, ib->input) != LZMA_OK)
+        block.check = ib->check;
+		if (lzma_block_header_decode(&block, NULL, ib->input) != LZMA_OK)
             die("Error decoding block header");
         if (lzma_block_decoder(&stream, &block) != LZMA_OK)
             die("Error initializing block decode");
