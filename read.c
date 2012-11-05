@@ -110,7 +110,6 @@ void pixz_read(bool verify, size_t nspecs, char **specs) {
     pipeline_create(block_create, block_free,
 		gIndex ? read_thread : read_thread_noindex, decode_thread);
     if (verify && gFileIndexOffset) {
-		// FIXME: don't stop on End Of Archive
         gArWanted = gWantedFiles;
         wanted_t *w = gWantedFiles, *wlast = NULL;
         bool lastmulti = false;
@@ -439,7 +438,6 @@ static void read_streaming(lzma_block *block) {
 }
 
 static void read_index(void) {
-	// FIXME: verify it matches the blocks?
     lzma_stream stream = LZMA_STREAM_INIT;
 	lzma_index *index;
 	if (lzma_index_decoder(&stream, &index, MEMLIMIT) != LZMA_OK)
@@ -459,7 +457,6 @@ static void read_index(void) {
 }
 
 static void read_footer(void) {
-	// FIXME: compare with header?
 	lzma_stream_flags stream_flags;
 	if (rbuf_read(LZMA_STREAM_HEADER_SIZE) != RBUF_FULL)
 		die("Error reading stream footer");
@@ -489,7 +486,6 @@ static void read_thread_noindex(void) {
 			; // pass
 		read_index();
 		read_footer();
-		// FIXME: don't output the pixz file index! heuristic?
 	}
 	if (empty)
 		die("Empty input");
