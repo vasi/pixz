@@ -15,7 +15,13 @@ BUGS
 	* performance lags under IO?
 	* slow input -> CPUs idle while waiting for input
 	* safe extraction
-		* abort if block size exceeded
+	* sanity checks, from spec:
+		- CRCs are already tested, i think?
+		- backward size should match file
+		- reserved flags must be zero
+		- header vs footer flags
+		- uncompressed size field vs actual uncompressed size
+		- index vs actual blocks
 
 EFFICIENCY
 	* more efficient indexing: ranges? sorted? mtree?

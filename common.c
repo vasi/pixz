@@ -5,15 +5,8 @@
 
 #pragma mark UTILS
 
-typedef struct {
-    lzma_block block;
-    lzma_filter filters[LZMA_FILTERS_MAX + 1];
-} block_wrapper_t;
-
 FILE *gInFile = NULL;
 lzma_stream gStream = LZMA_STREAM_INIT;
-
-lzma_check gCheck = LZMA_CHECK_NONE;
 
 
 void die(const char *fmt, ...) {
@@ -36,32 +29,6 @@ char *xstrdup(const char *s) {
     return memcpy(r, s, len + 1); 
 }
 
-void *decode_block_start(off_t block_seek) {
-    if (fseeko(gInFile, block_seek, SEEK_SET) == -1)
-        die("Error seeking to block");
-    
-    // Some memory in which to keep the discovered filters safe
-    block_wrapper_t *bw = malloc(sizeof(block_wrapper_t));
-    bw->block = (lzma_block){ .check = gCheck, .filters = bw->filters,
-	 	.version = 0 };
-    
-    int b = fgetc(gInFile);
-    if (b == EOF || b == 0)
-        die("Error reading block size");
-    bw->block.header_size = lzma_block_header_size_decode(b);
-    uint8_t hdrbuf[bw->block.header_size];
-    hdrbuf[0] = (uint8_t)b;
-    if (fread(hdrbuf + 1, bw->block.header_size - 1, 1, gInFile) != 1)
-        die("Error reading block header");
-    if (lzma_block_header_decode(&bw->block, NULL, hdrbuf) != LZMA_OK)
-        die("Error decoding file index block header");
-    
-    if (lzma_block_decoder(&gStream, &bw->block) != LZMA_OK)
-        die("Error initializing file index stream");
-    
-    return bw;
-}
-
 bool is_multi_header(const char *name) {
     size_t i = strlen(name);
     while (i != 0 && name[i - 1] != '/')
@@ -81,6 +48,9 @@ static size_t gFIBSize = CHUNKSIZE, gFIBPos = 0;
 static lzma_ret gFIBErr = LZMA_OK;
 static uint8_t gFIBInputBuf[CHUNKSIZE];
 static size_t gMoved = 0;
+
+static void *decode_file_index_start(off_t block_seek, lzma_check check);
+static lzma_vli find_file_index(void **bdatap);
 
 static char *read_file_index_name(void);
 static void read_file_index_make_space(void);
@@ -109,7 +79,38 @@ void free_file_index(void) {
     gFileIndex = gLastFile = NULL;
 }
 
-lzma_vli find_file_index(void **bdatap) {
+typedef struct {
+    lzma_block block;
+    lzma_filter filters[LZMA_FILTERS_MAX + 1];
+} block_wrapper_t;
+
+static void *decode_file_index_start(off_t block_seek, lzma_check check) {
+    if (fseeko(gInFile, block_seek, SEEK_SET) == -1)
+        die("Error seeking to block");
+    
+    // Some memory in which to keep the discovered filters safe
+    block_wrapper_t *bw = malloc(sizeof(block_wrapper_t));
+    bw->block = (lzma_block){ .check = check, .filters = bw->filters,
+	 	.version = 0 };
+    
+    int b = fgetc(gInFile);
+    if (b == EOF || b == 0)
+        die("Error reading block size");
+    bw->block.header_size = lzma_block_header_size_decode(b);
+    uint8_t hdrbuf[bw->block.header_size];
+    hdrbuf[0] = (uint8_t)b;
+    if (fread(hdrbuf + 1, bw->block.header_size - 1, 1, gInFile) != 1)
+        die("Error reading block header");
+    if (lzma_block_header_decode(&bw->block, NULL, hdrbuf) != LZMA_OK)
+        die("Error decoding file index block header");
+    
+    if (lzma_block_decoder(&gStream, &bw->block) != LZMA_OK)
+        die("Error initializing file index stream");
+    
+    return bw;
+}
+
+static lzma_vli find_file_index(void **bdatap) {
     if (!gIndex)
         decode_index();
         
@@ -119,7 +120,11 @@ lzma_vli find_file_index(void **bdatap) {
     lzma_vli loc = lzma_index_uncompressed_size(gIndex) - 1;
     if (lzma_index_iter_locate(&iter, loc))
         die("Can't locate file index block");
-    void *bdata = decode_block_start(iter.block.compressed_file_offset);
+	if (iter.stream.number != 1)
+		return 0; // Too many streams for one file index
+	
+    void *bdata = decode_file_index_start(iter.block.compressed_file_offset,
+		iter.stream.flags->check);
     
     gFileIndexBuf = malloc(gFIBSize);
     gStream.avail_out = gFIBSize;
@@ -146,10 +151,9 @@ lzma_vli find_file_index(void **bdatap) {
     return ret; 
 }  
 
-lzma_vli read_file_index(lzma_vli offset) {
+lzma_vli read_file_index() {
     void *bdata = NULL;
-    if (!offset)
-        offset = find_file_index(&bdata);
+	lzma_vli offset = find_file_index(&bdata);
     if (!offset)
         return 0;
     
@@ -230,38 +234,118 @@ static void read_file_index_data(void) {
     }
 }
 
-void decode_index(void) {
-    if (fseek(gInFile, -LZMA_STREAM_HEADER_SIZE, SEEK_END) == -1)
-        die("Error seeking to stream footer");
-    uint8_t hdrbuf[LZMA_STREAM_HEADER_SIZE];
-    if (fread(hdrbuf, LZMA_STREAM_HEADER_SIZE, 1, gInFile) != 1)
-        die("Error reading stream footer");
-    lzma_stream_flags flags;
-    if (lzma_stream_footer_decode(&flags, hdrbuf) != LZMA_OK)
+
+#define BWCHUNK 512
+
+typedef struct {
+	uint8_t buf[BWCHUNK];
+	off_t pos;
+	size_t size;
+} bw;
+
+static uint32_t *bw_read(bw *b) {
+	size_t sz = sizeof(uint32_t);
+	if (b->size < sz) {
+		if (b->pos < sz)
+			return NULL; // EOF
+		b->size = (b->pos > BWCHUNK) ? BWCHUNK : b->pos;
+		b->pos -= b->size;
+		if (fseeko(gInFile, b->pos, SEEK_SET) == -1)
+			return NULL;
+		if (fread(b->buf, b->size, 1, gInFile) != 1)
+			return NULL;
+	}
+	
+	b->size -= sz;
+	return &((uint32_t*)b->buf)[b->size / sz];
+}
+
+static off_t stream_padding(bw *b, off_t pos) {
+	b->pos = pos;
+	b->size = 0;
+	
+	for (off_t pad = 0; true; pad += sizeof(uint32_t)) {
+		uint32_t *i = bw_read(b);
+		if (!i)
+			die("Error reading stream padding");
+		if (*i != 0) {
+			b->size += sizeof(uint32_t);
+			return pad;
+		}
+	}
+}
+
+static void stream_footer(bw *b, lzma_stream_flags *flags) {
+	uint8_t ftr[LZMA_STREAM_HEADER_SIZE];
+	for (int i = sizeof(ftr) / sizeof(uint32_t) - 1; i >= 0; --i) {
+		uint32_t *p = bw_read(b);
+		if (!p)
+			die("Error reading stream footer");
+		*((uint32_t*)ftr + i) = *p;
+	}
+	
+    if (lzma_stream_footer_decode(flags, ftr) != LZMA_OK)
         die("Error decoding stream footer");
-    
-    gCheck = flags.check;
-    size_t index_seek = -LZMA_STREAM_HEADER_SIZE - flags.backward_size;
-    if (fseek(gInFile, index_seek, SEEK_CUR) == -1)
+}
+
+static lzma_index *next_index(off_t *pos) {
+	bw b;
+	off_t pad = stream_padding(&b, *pos);
+	off_t eos = *pos - pad;
+	
+	lzma_stream_flags flags;
+	stream_footer(&b, &flags);
+	*pos = eos - LZMA_STREAM_HEADER_SIZE - flags.backward_size;
+    if (fseeko(gInFile, *pos, SEEK_SET) == -1)
         die("Error seeking to index");
-    if (lzma_index_decoder(&gStream, &gIndex, MEMLIMIT) != LZMA_OK)
+	
+	lzma_stream strm = LZMA_STREAM_INIT;
+	lzma_index *index;
+    if (lzma_index_decoder(&strm, &index, MEMLIMIT) != LZMA_OK)
         die("Error creating index decoder");
     
     uint8_t ibuf[CHUNKSIZE];
-    gStream.avail_in = 0;
+    strm.avail_in = 0;
     lzma_ret err = LZMA_OK;
     while (err != LZMA_STREAM_END) {
-        if (gStream.avail_in == 0) {
-            gStream.avail_in = fread(ibuf, 1, CHUNKSIZE, gInFile);
+        if (strm.avail_in == 0) {
+            strm.avail_in = fread(ibuf, 1, CHUNKSIZE, gInFile);
             if (ferror(gInFile))
                 die("Error reading index");
-            gStream.next_in = ibuf;
+            strm.next_in = ibuf;
         }
         
-        err = lzma_code(&gStream, LZMA_RUN);
+        err = lzma_code(&strm, LZMA_RUN);
         if (err != LZMA_OK && err != LZMA_STREAM_END)
             die("Error decoding index");
     }
+	
+	*pos = eos - lzma_index_stream_size(index);
+	if (fseeko(gInFile, *pos, SEEK_SET) == -1)
+		die("Error seeking to beginning of stream");
+	
+	
+	if (lzma_index_stream_flags(index, &flags) != LZMA_OK)
+		die("Error setting stream flags");
+	if (lzma_index_stream_padding(index, pad) != LZMA_OK)
+		die("Error setting stream padding");
+	return index;
+}
+
+bool decode_index(void) {
+    if (fseeko(gInFile, 0, SEEK_END) == -1)
+		return false; // not seekable
+	off_t pos = ftello(gInFile);
+	
+	gIndex = NULL;
+	while (pos > 0) {
+		lzma_index *index = next_index(&pos);
+		if (gIndex && lzma_index_cat(index, gIndex, NULL) != LZMA_OK)
+			die("Error concatenating indices");
+		gIndex = index;
+	}
+	
+	return (gIndex != NULL);
 }
 
 
@@ -436,10 +520,14 @@ void pipeline_destroy(void) {
     free(gPLProcessThreads);
 }
 
-void pipeline_split(pipeline_item_t *item) {
+void pipeline_dispatch(pipeline_item_t *item, queue_t *q) {
     item->seq = gPLSplitSeq++;
     item->next = NULL;
-    queue_push(gPipelineSplitQ, PIPELINE_ITEM, item);
+    queue_push(q, PIPELINE_ITEM, item);
+}
+
+void pipeline_split(pipeline_item_t *item) {
+	pipeline_dispatch(item, gPipelineSplitQ);
 }
 
 pipeline_item_t *pipeline_merged() {

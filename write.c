@@ -93,10 +93,9 @@ void pixz_write(bool tar, uint32_t level) {
     }
     
     // file index
-    if (gTar) {
+    if (gTar)
         write_file_index();
-        free_file_index();
-    }
+    free_file_index();
     
     // post-block cleanup: index, footer
     encode_index();
@@ -126,7 +125,6 @@ static void read_thread() {
 	    while (true) {
 	        int aerr = archive_read_next_header(ar, &entry);
 	        if (aerr == ARCHIVE_EOF) {
-	            // TODO
 	            break;
 	        } else if (aerr != ARCHIVE_OK && aerr != ARCHIVE_WARN) {
 	            // Some charset translations warn spuriously

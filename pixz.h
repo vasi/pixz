@@ -20,7 +20,9 @@
 
 #define CHUNKSIZE 4096
 
-#define DEBUG 0
+#ifndef DEBUG
+	#define DEBUG 0
+#endif
 #if DEBUG
     #define debug(str, ...) fprintf(stderr, str "\n", ##__VA_ARGS__)
 #else
@@ -50,8 +52,6 @@ uint64_t xle64dec(const uint8_t *d);
 void xle64enc(uint8_t *d, uint64_t n);
 size_t num_threads(void);
 
-void *decode_block_start(off_t block_seek);
-
 
 #pragma mark INDEX
 
@@ -64,14 +64,10 @@ struct file_index_t {
 
 extern file_index_t *gFileIndex, *gLastFile;
 
-// As discovered from footer
-extern lzma_check gCheck;
-
 bool is_multi_header(const char *name);
-void decode_index(void);
+bool decode_index(void); // true on success
 
-lzma_vli find_file_index(void **bdatap);
-lzma_vli read_file_index(lzma_vli offset);
+lzma_vli read_file_index(void);
 void dump_file_index(FILE *out, bool verbose);
 void free_file_index(void);
 
@@ -135,5 +131,6 @@ void pipeline_create(
 void pipeline_stop(void);
 void pipeline_destroy(void);
 
+void pipeline_dispatch(pipeline_item_t *item, queue_t *q);
 void pipeline_split(pipeline_item_t *item);
 pipeline_item_t *pipeline_merged();
