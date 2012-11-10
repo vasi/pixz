@@ -106,7 +106,6 @@ void pixz_read(bool verify, size_t nspecs, char **specs) {
         debug("want: %s", w->name);
 #endif
     
-	bool first = true;
     pipeline_create(block_create, block_free,
 		gIndex ? read_thread : read_thread_noindex, decode_thread);
     if (verify && gFileIndexOffset) {
@@ -155,27 +154,30 @@ void pixz_read(bool verify, size_t nspecs, char **specs) {
         if (w && w->name)
             die("File %s missing in archive", w->name);
         tar_write_last(); // write whatever's left
-		first = false;
     }
 	if (!gExplicitFiles) {
-		bool tar = false;
-		bool all_sized = true;
-        bool skipping = false;
+		/* Heuristics for detecting pixz file index:
+		 *    - Input must be streaming (otherwise read_thread does this) 
+		 *    - Data must look tar-like
+		 *    - Must have all sized blocks, followed by unsized file index */
+		bool start = !gIndex && verify,
+			 tar = false, all_sized = true, skipping = false;
 		
 		pipeline_item_t *pi;
         while ((pi = pipeline_merged())) {
             io_block_t *ib = (io_block_t*)(pi->data);
-			if (first) {
-				tar = taste_tar(ib);
-				first = false;
-			}
 			if (skipping && ib->btype != BLOCK_CONTINUATION) {
-				die("File index heuristic failed, retry with -t flag");
+				fprintf(stderr,
+					"Warning: File index heuristic failed, use -t flag.\n");
 				skipping = false;
 			}
-			if (verify && !skipping && !first && tar && all_sized
+			if (!skipping && tar && !start && all_sized
 					&& ib->btype == BLOCK_UNSIZED && taste_file_index(ib))
 				skipping = true;
+			if (start) {
+				tar = taste_tar(ib);
+				start = false;
+			}
 			if (ib->btype != BLOCK_SIZED)
 				all_sized = false;
 			
@@ -541,7 +543,7 @@ static void read_thread(void) {
 	        offset += bsize;
 	        ib->uoffset = iter.block.uncompressed_file_offset;
 			ib->check = iter.stream.flags->check;
-			ib->btype = BLOCK_SIZED;
+			ib->btype = BLOCK_SIZED; // Indexed blocks always sized
 			
 	        pipeline_split(pi);
 		}

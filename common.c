@@ -120,6 +120,9 @@ static lzma_vli find_file_index(void **bdatap) {
     lzma_vli loc = lzma_index_uncompressed_size(gIndex) - 1;
     if (lzma_index_iter_locate(&iter, loc))
         die("Can't locate file index block");
+	if (iter.stream.number != 1)
+		return 0; // Too many streams for one file index
+	
     void *bdata = decode_file_index_start(iter.block.compressed_file_offset,
 		iter.stream.flags->check);
     
