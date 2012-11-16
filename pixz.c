@@ -113,7 +113,7 @@ int main(int argc, char **argv) {
 	
     switch (op) {
         case OP_WRITE:
-			if (isatty(fileno(gOutFile)) == -1)
+			if (isatty(fileno(gOutFile)) == 1)
 				usage("Refusing to output to a TTY");
 			pixz_write(tar, level);
 			break;
