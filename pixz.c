@@ -42,6 +42,7 @@ static void usage(const char *msg) {
 "  -t                 Don't assume input is in tar format\n"
 "  -h                 Print this help\n"
 "\n"
+"pixz 1.0\n"
 "(C) 2009-2012 Dave Vasilevsky <dave@vasilevsky.ca>\n"
 "https://github.com/vasi/pixz\n"
 "You may use this software under the FreeBSD License\n"
