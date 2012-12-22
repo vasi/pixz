@@ -1,10 +1,12 @@
+VERSION = 1.0
+
 ifneq ($(shell gcc -v 2>&1 | grep 'Apple Inc'),)
 	APPLE=1
 endif
 
 OPT = -g -O0
 MYCFLAGS = $(patsubst %,-I%/include,$(LIBPREFIX)) $(OPT) -std=gnu99 \
-	-Wall -Wno-unknown-pragmas
+	-Wall -Wno-unknown-pragmas -DPIXZ_VERSION='"$(VERSION)"'
 MYLDFLAGS = $(patsubst %,-L%/lib,$(LIBPREFIX)) $(OPT) -Wall
 
 THREADS = -lpthread
@@ -21,6 +23,7 @@ endif
 endif
 
 PROGS = pixz
+MANPAGE = pixz.1
 COMMON = common.o endian.o cpu.o read.o write.o list.o
 
 all: $(PROGS)
@@ -32,6 +35,12 @@ $(PROGS): %: %.o $(COMMON)
 	$(LD) $@ $^ $(LIBADD)
 
 clean:
-	rm -f *.o $(PROGS)
+	rm -f *.o $(PROGS) $(MANPAGE)
 
-.PHONY: all clean
+$(MANPAGE): pixz.1.asciidoc
+	a2x -a manversion=$(VERSION) -f manpage $<
+
+dist: $(MANPAGE)
+	
+
+.PHONY: all clean dist
