@@ -16,6 +16,8 @@ struct io_block_t {
 
 #pragma mark GLOBALS
 
+double gBlockFraction = 1.0;
+
 static bool gTar = true;
 
 static size_t gBlockInSize = 0, gBlockOutSize = 0;
@@ -70,7 +72,9 @@ void pixz_write(bool tar, uint32_t level) {
             .options = &lzma_opts };
     gFilters[1] = (lzma_filter){ .id = LZMA_VLI_UNKNOWN, .options = NULL };
     
-    gBlockInSize = lzma_opts.dict_size * 1.0;
+    gBlockInSize = lzma_opts.dict_size * gBlockFraction;
+    if (gBlockInSize <= 0)
+        die("Block size must be positive");
     gBlockOutSize = lzma_block_buffer_bound(gBlockInSize);
     
     pipeline_create(block_create, block_free, read_thread, encode_thread);
@@ -234,8 +238,9 @@ static void block_free(void *data) {
 
 static void *block_create() {
     io_block_t *ib = malloc(sizeof(io_block_t));
-    ib->input = malloc(gBlockInSize);
-    ib->output = malloc(gBlockOutSize);
+    if (!(ib->input = malloc(gBlockInSize))
+            || !(ib->output = malloc(gBlockOutSize)))
+        die("Can't allocate blocks");
     return ib;
 }
 

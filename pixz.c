@@ -59,7 +59,8 @@ int main(int argc, char **argv) {
     int ch;
 	char *optend;
 	long optint;
-    while ((ch = getopt(argc, argv, "dxli:o:tvhp:0123456789")) != -1) {
+    double optdbl;
+    while ((ch = getopt(argc, argv, "dxli:o:tvhp:0123456789f:")) != -1) {
         switch (ch) {
             case 'd': op = OP_READ; break;
             case 'x': op = OP_EXTRACT; break;
@@ -68,6 +69,12 @@ int main(int argc, char **argv) {
             case 'o': opath = optarg; break;
             case 't': tar = false; break;
 			case 'h': usage(NULL); break;
+			case 'f':
+                optdbl = strtod(optarg, &optend);
+                if (*optend || optdbl <= 0)
+                    usage("Need a positive floating-point argument to -f");
+                gBlockFraction = optdbl;
+                break;
 			case 'p':
 				optint = strtol(optarg, &optend, 10);
 				if (optint < 0 || *optend)

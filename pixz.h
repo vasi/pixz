@@ -52,6 +52,8 @@ uint64_t xle64dec(const uint8_t *d);
 void xle64enc(uint8_t *d, uint64_t n);
 size_t num_threads(void);
 
+extern double gBlockFraction;
+
 
 #pragma mark INDEX
 
