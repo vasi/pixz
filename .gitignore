@@ -1,5 +1,7 @@
 pixz
 pixz.1
+dist
+pixz-*.tgz
 
 *.o
 

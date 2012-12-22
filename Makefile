@@ -1,4 +1,6 @@
 VERSION = 1.0
+DISTNAME = pixz-$(VERSION)
+TARBALL = $(DISTNAME).tgz
 
 ifneq ($(shell gcc -v 2>&1 | grep 'Apple Inc'),)
 	APPLE=1
@@ -35,12 +37,20 @@ $(PROGS): %: %.o $(COMMON)
 	$(LD) $@ $^ $(LIBADD)
 
 clean:
-	rm -f *.o $(PROGS) $(MANPAGE)
+	rm -rf *.o $(PROGS) $(MANPAGE) dist
 
 $(MANPAGE): pixz.1.asciidoc
 	a2x -a manversion=$(VERSION) -f manpage $<
 
-dist: $(MANPAGE)
-	
+dist:
+	rm -rf dist
+	mkdir -p dist
+	git archive --prefix=$(DISTNAME)/ --format=tar HEAD | tar -x -C dist
 
-.PHONY: all clean dist
+$(TARBALL): $(MANPAGE) dist
+	cp pixz.1 dist/$(DISTNAME)/
+	tar -cf $(TARBALL) -C dist $(DISTNAME)
+
+tarball: $(TARBALL)
+
+.PHONY: all clean tarball dist
