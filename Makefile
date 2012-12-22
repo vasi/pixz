@@ -37,7 +37,7 @@ $(PROGS): %: %.o $(COMMON)
 	$(LD) $@ $^ $(LIBADD)
 
 clean:
-	rm -rf *.o $(PROGS) $(MANPAGE) dist
+	rm -rf *.o $(PROGS) $(MANPAGE) $(TARBALL) dist
 
 $(MANPAGE): pixz.1.asciidoc
 	a2x -a manversion=$(VERSION) -f manpage $<
