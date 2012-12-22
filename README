@@ -41,8 +41,6 @@ $ pixz -t foo.tar           # Compress but don't treat it as a tarball (don't in
 $ pixz -d -t foo.tpxz       # Decompress foo, don't check that contents match index
 $ pixz -l -t foo.tpxz       # List the xz blocks instead of files
 
-WARNING: Running pixz without the -t flag will cause it to treat the input as a tarball, as long as it looks vaguely tarball-like. This means if the file starts with at least 1024 zero bytes, pixz will assume it's empty, and truncate the output! If your input files aren't tarballs, run with -t or face possible data-loss.
-
 
 Compare to:
     plzip
@@ -67,7 +65,7 @@ Comparable tools for other compression algorithms:
         * bzip2 algorithm is non-ideal
     pigz
         * Not indexable
-    dictzip
+    dictzip, idzip
         * Not parallel
 
 
