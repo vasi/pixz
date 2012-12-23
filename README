@@ -1,4 +1,8 @@
-Pixz (pronounced 'pixie') is a parallel, indexing version of XZ: https://github.com/vasi/pixz
+Pixz (pronounced 'pixie') is a parallel, indexing version of XZ
+
+Repository: https://github.com/vasi/pixz
+Downloads: https://sourceforge.net/projects/pixz/files/
+
 
 The existing XZ Utils ( http://tukaani.org/xz/ ) provide great compression in the .xz file format, but they have two significant problems:
 
@@ -40,6 +44,8 @@ $ pixz -p 2 foo.tar         # Cap the number of threads at 2
 $ pixz -t foo.tar           # Compress but don't treat it as a tarball (don't index it)
 $ pixz -d -t foo.tpxz       # Decompress foo, don't check that contents match index
 $ pixz -l -t foo.tpxz       # List the xz blocks instead of files
+
+For even more tuning flags, check the manual page.
 
 
 Compare to:
