@@ -42,6 +42,8 @@ static void read_thread();
 static void encode_thread(size_t thnum);
 static void *block_create();
 static void block_free(void *data);
+static void block_alloc(io_block_t *ib);
+static void block_dealloc(io_block_t *ib);
 
 static void add_file(off_t offset, const char *name);
 
@@ -178,6 +180,7 @@ static ssize_t tar_read(struct archive *ar, void *ref, const void **bufp) {
     if (!gReadItem) {
         queue_pop(gPipelineStartQ, (void**)&gReadItem);
         gReadBlock = (io_block_t*)(gReadItem->data);
+        block_alloc(gReadBlock);
         gReadBlock->insize = 0;
         debug("reader: reading %zu", gReadItemCount);
     }
@@ -238,10 +241,23 @@ static void block_free(void *data) {
 
 static void *block_create() {
     io_block_t *ib = malloc(sizeof(io_block_t));
-    if (!(ib->input = malloc(gBlockInSize))
-            || !(ib->output = malloc(gBlockOutSize)))
-        die("Can't allocate blocks");
+    ib->input = ib->output = NULL;
     return ib;
+}
+
+static void block_alloc(io_block_t *ib) {
+    if (!ib->input)
+        ib->input = malloc(gBlockInSize);
+    if (!ib->output)
+        ib->output = malloc(gBlockOutSize);
+    if (!ib->input || !ib->output)
+        die("Can't allocate blocks");
+}
+
+static void block_dealloc(io_block_t *ib) {
+    free(ib->input);
+    free(ib->output);
+    ib->input = ib->output = NULL;
 }
 
 
@@ -338,6 +354,7 @@ static void write_block(pipeline_item_t *pi) {
             ib->block.uncompressed_size) != LZMA_OK)
         die("Error adding to index");
 
+    block_dealloc(ib);
     debug("writer: writing %zu complete", pi->seq);
 }
 
