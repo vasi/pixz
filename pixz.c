@@ -60,7 +60,7 @@ int main(int argc, char **argv) {
 	char *optend;
 	long optint;
     double optdbl;
-    while ((ch = getopt(argc, argv, "dxli:o:tvhp:0123456789f:q:")) != -1) {
+    while ((ch = getopt(argc, argv, "dxli:o:tvhp:0123456789f:q:e")) != -1) {
         switch (ch) {
             case 'd': op = OP_READ; break;
             case 'x': op = OP_EXTRACT; break;
@@ -69,6 +69,7 @@ int main(int argc, char **argv) {
             case 'o': opath = optarg; break;
             case 't': tar = false; break;
 			case 'h': usage(NULL); break;
+            case 'e': level |= LZMA_PRESET_EXTREME; break;
 			case 'f':
                 optdbl = strtod(optarg, &optend);
                 if (*optend || optdbl <= 0)
