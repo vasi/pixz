@@ -40,8 +40,17 @@ By default, pixz uses standard input and output, unless 'INPUT' and 'OUTPUT' arg
 *-#*::
   Set compression level, from -0 (lowest compression, fastest) to -9 (highest compression, slowest).
 
+*-e*::
+  Use "extreme" compression, which is much slower and only yields a marginal decrease in size.
+
 *-p* 'CPUS'::
   Set the number of CPU cores to use. By default pixz will use the number of cores on the system.
+
+*-f* 'FRACTION'::
+  Set the size of each compression block, relative to the LZMA dictionary size (default is 2.0). Higher values give better compression ratios, but use more memory and make random access less efficient. Values less than 1.0 aren't very efficient.
+
+*-q* 'SIZE'::
+  Set the number of blocks to allocate for the compression queue (default is 1.3 * cores + 2, rounded up). Higher values give better throughput, up to a point, but use more memory. Values less than the number of cores will make some cores sit idle.
 
 *-h*::
   Show pixz's online help.

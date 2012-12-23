@@ -1,0 +1,10 @@
+1.0.1 - Dec 22, 2012
+
+  * Add a man page
+  * Add tuning options -e, -q, -f
+
+1.0 - Nov 21, 2012
+
+  * Support streaming decompression
+  * Prevent accidental truncation
+  * Don't spew binary output to a terminal
