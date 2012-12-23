@@ -16,7 +16,7 @@ struct io_block_t {
 
 #pragma mark GLOBALS
 
-double gBlockFraction = 1.0;
+double gBlockFraction = 2.0;
 
 static bool gTar = true;
 

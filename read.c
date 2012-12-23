@@ -60,7 +60,7 @@ static void tar_write_last(void);
 #pragma mark DECLARE READ BUFFER
 
 #define STREAMSIZE (1024 * 1024)
-#define MAXSPLITSIZE (64 * 1024 * 1024) // xz -9 blocksize
+#define MAXSPLITSIZE ((64 * 1024 * 1024) * 2) // xz -9 blocksize * 2
 
 static pipeline_item_t *gRbufPI = NULL;
 static io_block_t *gRbuf = NULL;
