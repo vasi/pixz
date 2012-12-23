@@ -104,6 +104,7 @@ int queue_pop(queue_t *q, void **datap);
 
 #pragma mark PIPELINE
 
+extern size_t gPipelineQSize;
 extern size_t gPipelineProcessMax;
 extern queue_t *gPipelineStartQ, *gPipelineSplitQ, *gPipelineMergeQ;
 

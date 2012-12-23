@@ -60,7 +60,7 @@ int main(int argc, char **argv) {
 	char *optend;
 	long optint;
     double optdbl;
-    while ((ch = getopt(argc, argv, "dxli:o:tvhp:0123456789f:")) != -1) {
+    while ((ch = getopt(argc, argv, "dxli:o:tvhp:0123456789f:q:")) != -1) {
         switch (ch) {
             case 'd': op = OP_READ; break;
             case 'x': op = OP_EXTRACT; break;
@@ -81,6 +81,12 @@ int main(int argc, char **argv) {
 					usage("Need a non-negative integer argument to -p");
 				gPipelineProcessMax = optint;
 				break;
+            case 'q':
+    			optint = strtol(optarg, &optend, 10);
+    			if (optint <= 0 || *optend)
+    				usage("Need a positive integer argument to -q");
+    			gPipelineQSize = optint;
+    			break;
             default:
                 if (ch >= '0' && ch <= '9') {
                     level = ch - '0';
@@ -91,7 +97,7 @@ int main(int argc, char **argv) {
     }
     argc -= optind;
     argv += optind;
-    
+        
     gInFile = stdin;
     gOutFile = stdout;
     bool iremove = false;    

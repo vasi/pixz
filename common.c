@@ -1,6 +1,7 @@
 #include "pixz.h"
 
 #include <stdarg.h>
+#include <math.h>
 
 
 #pragma mark UTILS
@@ -418,6 +419,7 @@ queue_t *gPipelineStartQ = NULL,
     *gPipelineMergeQ = NULL;
 
 size_t gPipelineProcessMax = 0;
+size_t gPipelineQSize = 0;
 
 pipeline_data_free_t gPLFreer = NULL;
 pipeline_split_t gPLSplit = NULL;
@@ -457,7 +459,13 @@ void pipeline_create(
 		gPLProcessCount = gPipelineProcessMax;
 	
     gPLProcessThreads = malloc(gPLProcessCount * sizeof(pthread_t));
-    for (size_t i = 0; i < (int)(gPLProcessCount * 2 + 3); ++i) {
+    int qsize = gPipelineQSize ? gPipelineQSize
+        : ceil(gPLProcessCount * 1.3 + 1);
+    if (qsize < gPLProcessCount) {
+        fprintf(stderr, "Warning: queue size is less than thread count, "
+            "performance will suffer!\n");
+    }
+    for (size_t i = 0; i < qsize; ++i) {
         // create blocks, including a margin of error
         pipeline_item_t *item = malloc(sizeof(pipeline_item_t));
         item->data = create();
