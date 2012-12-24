@@ -49,7 +49,7 @@ dist:
 
 $(TARBALL): $(MANPAGE) dist
 	cp pixz.1 dist/$(DISTNAME)/
-	tar -cf $(TARBALL) -C dist $(DISTNAME)
+	tar -czf $(TARBALL) -C dist $(DISTNAME)
 
 tarball: $(TARBALL)
 
