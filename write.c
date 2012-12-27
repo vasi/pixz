@@ -42,8 +42,14 @@ static void read_thread();
 static void encode_thread(size_t thnum);
 static void *block_create();
 static void block_free(void *data);
-static void block_alloc(io_block_t *ib);
-static void block_dealloc(io_block_t *ib);
+
+typedef enum {
+	BLOCK_IN = 1,
+	BLOCK_OUT = 2,
+	BLOCK_ALL = BLOCK_IN | BLOCK_OUT,
+} block_parts;
+static void block_alloc(io_block_t *ib, block_parts parts);
+static void block_dealloc(io_block_t *ib, block_parts parts);
 
 static void add_file(off_t offset, const char *name);
 
@@ -180,7 +186,7 @@ static ssize_t tar_read(struct archive *ar, void *ref, const void **bufp) {
     if (!gReadItem) {
         queue_pop(gPipelineStartQ, (void**)&gReadItem);
         gReadBlock = (io_block_t*)(gReadItem->data);
-        block_alloc(gReadBlock);
+        block_alloc(gReadBlock, BLOCK_IN);
         gReadBlock->insize = 0;
         debug("reader: reading %zu", gReadItemCount);
     }
@@ -245,19 +251,24 @@ static void *block_create() {
     return ib;
 }
 
-static void block_alloc(io_block_t *ib) {
-    if (!ib->input)
+static void block_alloc(io_block_t *ib, block_parts parts) {
+    if ((parts & BLOCK_IN) && !ib->input)
         ib->input = malloc(gBlockInSize);
-    if (!ib->output)
+    if ((parts & BLOCK_IN) && !ib->output)
         ib->output = malloc(gBlockOutSize);
     if (!ib->input || !ib->output)
         die("Can't allocate blocks");
 }
 
-static void block_dealloc(io_block_t *ib) {
-    free(ib->input);
-    free(ib->output);
-    ib->input = ib->output = NULL;
+static void block_dealloc(io_block_t *ib, block_parts parts) {
+    if (parts & BLOCK_IN) {
+		free(ib->input);
+		ib->input = NULL;
+	}
+    if (parts & BLOCK_OUT) {
+		free(ib->output);
+		ib->output = NULL;
+	}
 }
 
 
@@ -274,6 +285,7 @@ static void encode_thread(size_t thnum) {
         debug("encoder %zu: received %zu", thnum, pi->seq);
         io_block_t *ib = (io_block_t*)(pi->data);
         
+		block_alloc(ib, BLOCK_OUT);
         block_init(&ib->block, ib->insize);
 		size_t header_size = ib->block.header_size;
 		ib->block.uncompressed_size = LZMA_VLI_UNKNOWN;
@@ -292,6 +304,7 @@ static void encode_thread(size_t thnum) {
             if (err != LZMA_OK && err != LZMA_STREAM_END)
                 die("Error encoding block");
         }
+		block_dealloc(ib, BLOCK_IN);
         ib->outsize = stream.next_out - ib->output;
         
         if (lzma_block_header_encode(&ib->block, ib->output) != LZMA_OK)
@@ -354,7 +367,7 @@ static void write_block(pipeline_item_t *pi) {
             ib->block.uncompressed_size) != LZMA_OK)
         die("Error adding to index");
 
-    block_dealloc(ib);
+    block_dealloc(ib, BLOCK_ALL);
     debug("writer: writing %zu complete", pi->seq);
 }
 
