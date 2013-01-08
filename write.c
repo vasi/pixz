@@ -16,6 +16,8 @@ struct io_block_t {
 
 #pragma mark GLOBALS
 
+#define LZMA_CHUNK_MAX (1 << 16)
+
 double gBlockFraction = 2.0;
 
 static bool gTar = true;
@@ -39,7 +41,11 @@ static size_t gFileIndexBufPos = 0;
 #pragma mark FUNCTION DECLARATIONS
 
 static void read_thread();
+
 static void encode_thread(size_t thnum);
+static void encode_uncompressible(io_block_t *ib);
+static size_t size_uncompressible(size_t insize);
+
 static void *block_create();
 static void block_free(void *data);
 
@@ -274,6 +280,67 @@ static void block_dealloc(io_block_t *ib, block_parts parts) {
 
 #pragma mark ENCODING
 
+static size_t size_uncompressible(size_t insize) {
+    size_t chunks = insize / LZMA_CHUNK_MAX;
+    if (insize % LZMA_CHUNK_MAX)
+        ++chunks;
+    // Per chunk (control code + 2-byte size), one byte for EOF
+    size_t data_size = insize + chunks * 3 + 1;
+    if (data_size % 4)
+        data_size += 4 - data_size % 4; // Padding
+    return data_size;
+}
+
+static void encode_uncompressible(io_block_t *ib) {
+    // See http://en.wikipedia.org/wiki/Lzma#LZMA2_format
+    const uint8_t control_uncomp = 1;
+    const uint8_t control_end = 0;
+
+    uint8_t *output_start = ib->output + ib->block.header_size;
+    uint8_t *output = output_start;
+    uint8_t *input = ib->input;
+    size_t remain = ib->insize;
+
+    while (remain) {
+        size_t size = remain;
+        if (size > LZMA_CHUNK_MAX)
+            size = LZMA_CHUNK_MAX;
+
+        // control byte for uncompressed block
+        *output++ = control_uncomp;
+
+        // 16-bit big endian (size - 1)
+        uint16_t size_write = size - 1;
+        *output++ = (size_write >> 8);
+        *output++ = (size_write & 0xFF);
+
+        // actual chunk data
+        memcpy(output, input, size);
+
+        remain -= size;
+        output += size;
+        input += size;
+    }
+    // control byte for end of block
+    *output++ = control_end;
+
+    ib->block.compressed_size = output - output_start;
+    ib->block.uncompressed_size = ib->insize;
+
+    // padding
+    while ((output - output_start) % 4)
+        *output++ = 0;
+
+    // checksum (little endian)
+    if (ib->block.check != LZMA_CHECK_CRC32)
+        die("pixz only supports CRC-32 checksums");
+    uint32_t check = lzma_crc32(ib->input, ib->insize, 0);
+    *output++ = check & 0xFF;
+    *output++ = (check >> 8) & 0xFF;
+    *output++ = (check >> 16) & 0xFF;
+    *output++ = (check >> 24);
+}
+
 static void encode_thread(size_t thnum) {
     lzma_stream stream = LZMA_STREAM_INIT;    
     while (true) {
@@ -287,25 +354,32 @@ static void encode_thread(size_t thnum) {
         
 		block_alloc(ib, BLOCK_OUT);
         block_init(&ib->block, ib->insize);
-		size_t header_size = ib->block.header_size;
-		ib->block.uncompressed_size = LZMA_VLI_UNKNOWN;
-        ib->outsize = header_size;
+        size_t header_size = ib->block.header_size;
+        size_t uncompressible_size = size_uncompressible(ib->insize) +
+            lzma_check_size(ib->block.check);
 		        
         if (lzma_block_encoder(&stream, &ib->block) != LZMA_OK)
             die("Error creating block encoder");
         stream.next_in = ib->input;
         stream.avail_in = ib->insize;
-        stream.next_out = ib->output + ib->outsize;
-        stream.avail_out = gBlockOutSize - ib->outsize;
+        stream.next_out = ib->output + header_size;
+        stream.avail_out = uncompressible_size;
         
+        ib->block.uncompressed_size = LZMA_VLI_UNKNOWN; // for encoder to change
         lzma_ret err = LZMA_OK;
-        while (err != LZMA_STREAM_END) {
+        while (err == LZMA_OK) {
             err = lzma_code(&stream, LZMA_FINISH);
-            if (err != LZMA_OK && err != LZMA_STREAM_END)
-                die("Error encoding block");
         }
-		block_dealloc(ib, BLOCK_IN);
-        ib->outsize = stream.next_out - ib->output;
+        if (err == LZMA_BUF_ERROR) {
+            debug("encoder: uncompressible %zu", pi->seq);
+            encode_uncompressible(ib);
+            ib->outsize = header_size + uncompressible_size;
+        } else if (err == LZMA_STREAM_END) {
+            ib->outsize = stream.next_out - ib->output;
+        } else {
+            die("Error encoding block");
+        }
+        block_dealloc(ib, BLOCK_IN);
         
         if (lzma_block_header_encode(&ib->block, ib->output) != LZMA_OK)
             die("Error encoding block header");
@@ -325,7 +399,7 @@ static void block_init(lzma_block *block, size_t insize) {
     block->check = CHECK;
     block->filters = gFilters;
 	block->uncompressed_size = insize ? insize : LZMA_VLI_UNKNOWN;
-    block->compressed_size = insize? gBlockOutSize : LZMA_VLI_UNKNOWN;
+    block->compressed_size = insize ? gBlockOutSize : LZMA_VLI_UNKNOWN;
 	
     if (lzma_block_header_size(block) != LZMA_OK)
         die("Error getting block header size");
