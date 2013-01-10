@@ -12,7 +12,7 @@ MYCFLAGS = $(patsubst %,-I%/include,$(LIBPREFIX)) $(OPT) -std=gnu99 \
 MYLDFLAGS = $(patsubst %,-L%/lib,$(LIBPREFIX)) $(OPT) -Wall
 
 THREADS = -lpthread
-LIBADD = $(THREADS) -llzma -larchive
+LIBADD = $(THREADS) -lm -llzma -larchive
 
 CC = gcc
 COMPILE = $(CC) $(MYCFLAGS) $(CFLAGS) -c -o
