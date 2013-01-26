@@ -78,7 +78,7 @@ static void rbuf_dispatch(void);
 
 static bool read_header(lzma_check *check);
 static bool read_block(bool force_stream, lzma_check check);
-static void read_streaming(lzma_block *block);
+static void read_streaming(lzma_block *block, block_type sized);
 static void read_index(void);
 static void read_footer(void);
 
@@ -178,7 +178,7 @@ void pixz_read(bool verify, size_t nspecs, char **specs) {
 				tar = taste_tar(ib);
 				start = false;
 			}
-			if (ib->btype != BLOCK_SIZED)
+			if (ib->btype == BLOCK_UNSIZED)
 				all_sized = false;
 			
 			if (!skipping)
@@ -379,10 +379,9 @@ static bool read_block(bool force_stream, lzma_check check) {
 		die("Error decoding block header");
 		
 	size_t comp = block.compressed_size, outsize = block.uncompressed_size;
-	if (force_stream || comp == LZMA_VLI_UNKNOWN
-			|| outsize == LZMA_VLI_UNKNOWN
-			|| outsize > MAXSPLITSIZE) {
-		read_streaming(&block);
+	bool sized = (comp != LZMA_VLI_UNKNOWN && outsize != LZMA_VLI_UNKNOWN);
+    if (force_stream || !sized || outsize > MAXSPLITSIZE) {
+		read_streaming(&block, sized ? BLOCK_SIZED : BLOCK_UNSIZED);
 	} else {
 		block_capacity(gRbuf, 0, outsize);
 		gRbuf->outsize = outsize;
@@ -396,7 +395,7 @@ static bool read_block(bool force_stream, lzma_check check) {
 	return true;
 }
 
-static void read_streaming(lzma_block *block) {
+static void read_streaming(lzma_block *block, block_type sized) {
     lzma_stream stream = LZMA_STREAM_INIT;
     if (lzma_block_decoder(&stream, block) != LZMA_OK)
 		die("Error initializing streaming block decode");
@@ -420,7 +419,7 @@ static void read_streaming(lzma_block *block) {
 			}
 			queue_pop(gPipelineStartQ, (void**)&pi);
 			ib = (io_block_t*)pi->data;
-			ib->btype = (first ? BLOCK_UNSIZED : BLOCK_CONTINUATION);
+			ib->btype = (first ? sized : BLOCK_CONTINUATION);
 			block_capacity(ib, 0, STREAMSIZE);
 			stream.next_out = ib->output;
 			stream.avail_out = ib->outcap;
