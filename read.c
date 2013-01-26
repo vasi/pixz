@@ -519,13 +519,6 @@ static void read_thread(void) {
         }
         debug("read: want %llu", iter.block.number_in_file);
         
-        // Get a block to work with
-        pipeline_item_t *pi;
-        queue_pop(gPipelineStartQ, (void**)&pi);
-        io_block_t *ib = (io_block_t*)(pi->data);
-		block_capacity(ib, iter.block.unpadded_size,
-			iter.block.uncompressed_size);
-        
         // Seek if needed, and get the data
         if (offset != boffset) {
             fseeko(gInFile, boffset, SEEK_SET);
@@ -537,6 +530,13 @@ static void read_thread(void) {
 				rbuf_consume(gRbuf->insize); // clear
 			read_block(true, iter.stream.flags->check);
 		} else {
+            // Get a block to work with
+            pipeline_item_t *pi;
+            queue_pop(gPipelineStartQ, (void**)&pi);
+            io_block_t *ib = (io_block_t*)(pi->data);
+            block_capacity(ib, iter.block.unpadded_size,
+                iter.block.uncompressed_size);
+            
 	        ib->insize = fread(ib->input, 1, bsize, gInFile);
 	        if (ib->insize < bsize)
 	            die("Error reading block contents");
