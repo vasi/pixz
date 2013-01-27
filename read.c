@@ -77,8 +77,8 @@ static void rbuf_consume(size_t bytes);
 static void rbuf_dispatch(void);
 
 static bool read_header(lzma_check *check);
-static bool read_block(bool force_stream, lzma_check check);
-static void read_streaming(lzma_block *block, block_type sized);
+static bool read_block(bool force_stream, lzma_check check, off_t uoffset);
+static void read_streaming(lzma_block *block, block_type sized, off_t uoffset);
 static void read_index(void);
 static void read_footer(void);
 
@@ -361,7 +361,7 @@ static bool read_header(lzma_check *check) {
 	return true;
 }
 
-static bool read_block(bool force_stream, lzma_check check) {
+static bool read_block(bool force_stream, lzma_check check, off_t uoffset) {
     lzma_filter filters[LZMA_FILTERS_MAX + 1];
     lzma_block block = { .filters = filters, .check = check, .version = 0 };
 	
@@ -381,7 +381,7 @@ static bool read_block(bool force_stream, lzma_check check) {
 	size_t comp = block.compressed_size, outsize = block.uncompressed_size;
 	bool sized = (comp != LZMA_VLI_UNKNOWN && outsize != LZMA_VLI_UNKNOWN);
     if (force_stream || !sized || outsize > MAXSPLITSIZE) {
-		read_streaming(&block, sized ? BLOCK_SIZED : BLOCK_UNSIZED);
+		read_streaming(&block, sized ? BLOCK_SIZED : BLOCK_UNSIZED, uoffset);
 	} else {
 		block_capacity(gRbuf, 0, outsize);
 		gRbuf->outsize = outsize;
@@ -395,7 +395,7 @@ static bool read_block(bool force_stream, lzma_check check) {
 	return true;
 }
 
-static void read_streaming(lzma_block *block, block_type sized) {
+static void read_streaming(lzma_block *block, block_type sized, off_t uoffset) {
     lzma_stream stream = LZMA_STREAM_INIT;
     if (lzma_block_decoder(&stream, block) != LZMA_OK)
 		die("Error initializing streaming block decode");
@@ -414,6 +414,8 @@ static void read_streaming(lzma_block *block, block_type sized) {
 		if (stream.avail_out == 0) {
 			if (ib) {
 				ib->outsize = ib->outcap;
+                ib->uoffset = uoffset;
+                uoffset += ib->outsize;
 				pipeline_dispatch(pi, gPipelineMergeQ);
 				first = false;
 			}
@@ -483,7 +485,7 @@ static void read_thread_noindex(void) {
 	lzma_check check = LZMA_CHECK_NONE;
 	while (read_header(&check)) {
 		empty = false;
-		while (read_block(false, check))
+		while (read_block(false, check, 0))
 			; // pass
 		read_index();
 		read_footer();
@@ -527,7 +529,8 @@ static void read_thread(void) {
 		if (iter.block.uncompressed_size > MAXSPLITSIZE) { // must stream
 			if (gRbuf)
 				rbuf_consume(gRbuf->insize); // clear
-			read_block(true, iter.stream.flags->check);
+			read_block(true, iter.stream.flags->check,
+                iter.block.uncompressed_file_offset);
 		} else {
             // Get a block to work with
             pipeline_item_t *pi;
