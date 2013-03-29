@@ -40,6 +40,7 @@ static void usage(const char *msg) {
 "  -0, -1 ... -9      Set compression level, from fastest to strongest\n"
 "  -p NUM             Use a maximum of NUM CPU-intensive threads\n"
 "  -t                 Don't assume input is in tar format\n"
+"  -k                 Keep original input (do not remove it)\n"
 "  -h                 Print this help\n"
 "\n"
 "pixz %s\n"
@@ -53,6 +54,7 @@ static void usage(const char *msg) {
 int main(int argc, char **argv) {    
     uint32_t level = LZMA_PRESET_DEFAULT;
     bool tar = true;
+    bool keep_input = false;
     pixz_op_t op = OP_WRITE;
     char *ipath = NULL, *opath = NULL;
     
@@ -60,7 +62,7 @@ int main(int argc, char **argv) {
 	char *optend;
 	long optint;
     double optdbl;
-    while ((ch = getopt(argc, argv, "dxli:o:tvhp:0123456789f:q:e")) != -1) {
+    while ((ch = getopt(argc, argv, "dxli:o:tkvhp:0123456789f:q:e")) != -1) {
         switch (ch) {
             case 'd': op = OP_READ; break;
             case 'x': op = OP_EXTRACT; break;
@@ -68,6 +70,7 @@ int main(int argc, char **argv) {
             case 'i': ipath = optarg; break;
             case 'o': opath = optarg; break;
             case 't': tar = false; break;
+            case 'k': keep_input = true; break;
 			case 'h': usage(NULL); break;
             case 'e': level |= LZMA_PRESET_EXTREME; break;
 			case 'f':
@@ -137,7 +140,7 @@ int main(int argc, char **argv) {
         case OP_LIST: pixz_list(tar);
     }
     
-    if (iremove)
+    if (iremove && !keep_input)
         unlink(ipath);
     
     return 0;
