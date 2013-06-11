@@ -181,8 +181,10 @@ void pixz_read(bool verify, size_t nspecs, char **specs) {
 			if (ib->btype == BLOCK_UNSIZED)
 				all_sized = false;
 			
-			if (!skipping)
-				fwrite(ib->output, ib->outsize, 1, gOutFile);
+			if (!skipping) {
+				if (fwrite(ib->output, ib->outsize, 1, gOutFile) != 1)
+					die("Can't write block");
+			}
             queue_push(gPipelineStartQ, PIPELINE_ITEM, pi);
         }
     }
@@ -618,7 +620,8 @@ static bool tar_next_block(void) {
 static void tar_write_last(void) {
     if (gArItem) {
         io_block_t *ib = (io_block_t*)(gArItem->data);
-        fwrite(ib->output + gArLastOffset, gArLastSize, 1, gOutFile);
+        if (fwrite(ib->output + gArLastOffset, gArLastSize, 1, gOutFile) != 1)
+			die("Can't write previous block");
         gArLastSize = 0;
     }
 }
