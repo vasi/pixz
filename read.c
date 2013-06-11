@@ -115,7 +115,7 @@ void pixz_read(bool verify, size_t nspecs, char **specs) {
         off_t lastoff = 0;
         
         struct archive *ar = archive_read_new();
-        archive_read_support_compression_none(ar);
+        prevent_compression(ar);
         archive_read_support_format_tar(ar);
         archive_read_open(ar, NULL, tar_ok, tar_read, tar_ok);
         struct archive_entry *entry;
@@ -150,7 +150,7 @@ void pixz_read(bool verify, size_t nspecs, char **specs) {
             wlast = w;
             w = w->next;
         }
-		archive_read_finish(ar);
+		finish_reading(ar);
         if (w && w->name)
             die("File %s missing in archive", w->name);
         tar_write_last(); // write whatever's left
@@ -669,12 +669,12 @@ static ssize_t tar_read(struct archive *ar, void *ref, const void **bufp) {
 
 static bool taste_tar(io_block_t *ib) {
     struct archive *ar = archive_read_new();
-    archive_read_support_compression_none(ar);
+    prevent_compression(ar);
     archive_read_support_format_tar(ar);
     archive_read_open_memory(ar, ib->output, ib->outsize);
     struct archive_entry *entry;
     bool ok = (archive_read_next_header(ar, &entry) == ARCHIVE_OK);
-	archive_read_finish(ar);
+	finish_reading(ar);
 	return ok;
 }
 

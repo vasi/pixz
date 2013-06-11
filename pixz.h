@@ -30,6 +30,17 @@
 #endif
 
 
+#pragma mark LIBARCHIVE CHANGES
+
+#include <archive.h>
+#if ARCHIVE_VERSION_NUMBER >= 3000000
+	#define prevent_compression(a) archive_read_support_filter_none(a)
+	#define finish_reading(a) archive_read_free(a)
+#else
+	#define prevent_compression(a) archive_read_support_compression_none(a)
+	#define finish_reading(a) archive_read_finish(a)
+#endif
+
 #pragma mark OPERATIONS
 
 void pixz_list(bool tar);
