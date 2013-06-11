@@ -55,6 +55,7 @@ int main(int argc, char **argv) {
     uint32_t level = LZMA_PRESET_DEFAULT;
     bool tar = true;
     bool keep_input = false;
+    bool extreme = false;
     pixz_op_t op = OP_WRITE;
     char *ipath = NULL, *opath = NULL;
     
@@ -72,7 +73,7 @@ int main(int argc, char **argv) {
             case 't': tar = false; break;
             case 'k': keep_input = true; break;
 			case 'h': usage(NULL); break;
-            case 'e': level |= LZMA_PRESET_EXTREME; break;
+            case 'e': extreme = true; break;
 			case 'f':
                 optdbl = strtod(optarg, &optend);
                 if (*optend || optdbl <= 0)
@@ -133,6 +134,8 @@ int main(int argc, char **argv) {
         case OP_WRITE:
 			if (isatty(fileno(gOutFile)) == 1)
 				usage("Refusing to output to a TTY");
+			if (extreme)
+				level |= LZMA_PRESET_EXTREME;
 			pixz_write(tar, level);
 			break;
         case OP_READ: pixz_read(tar, 0, NULL); break;
