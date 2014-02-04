@@ -53,4 +53,17 @@ $(TARBALL): $(MANPAGE) dist
 
 tarball: $(TARBALL)
 
-.PHONY: all clean tarball dist
+tests: all
+	# make a test file
+	@dd if=/dev/zero of=./temp_file bs=1M count=1 2>/dev/null
+	# make a test tarball
+	@tar cf temp_file.tar temp_file 2>/dev/null
+
+	# run tests
+	./test.sh temp_file.tar temp_file
+
+	@rm -f temp_file.tar
+	@rm -f temp_file
+
+
+.PHONY: all clean tarball dist tests

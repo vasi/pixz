@@ -1,7 +1,12 @@
 #!/bin/bash
 
+set -e
+
 tarball=$1
 sample=$2
+
+[ ! -f "$sample" ] && (echo "[E] test file '$sample' does not exists!"; exit 1)
+[ ! -f "$tarball" ] && (echo "[E] test file '$tarball' does not exists!"; exit 1)
 
 echo XZ
 time xz -c < "$tarball" > test.txz
