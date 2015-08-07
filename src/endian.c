@@ -1,4 +1,4 @@
-#ifdef __APPLE__
+#ifdef __OS2__
 
 #include <libkern/OSByteOrder.h>
 

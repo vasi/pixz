@@ -1,9 +1,40 @@
+# created by autoscan
+
+/autom4te.cache
+/autoscan.log
+/configure.scan
+
+# created by autoreconf -fi (includes autoconf, automake, libtool)
+
+Makefile.in
+/aclocal.m4
+/autom4te.cache
+/compile
+/config.guess
+/config.h.in*
+/config.sub
+/configure
+/depcomp
+/install-sh
+/ltmain.sh
+/missing
+
+# created by configure
+
+Makefile
+/config.h
+/config.log
+/config.status
+/libtool
+/stamp-h1
+.deps
+
+# created by make
+
+*.la
+*.lo
+*.o
+.libs
 pixz
 pixz.1
-dist
-pixz-*.tgz
-
-*.o
-
-libs
-tars
+*.tar.*
