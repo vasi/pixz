@@ -5,7 +5,6 @@ CLEANUP
 		* error handling
 		* signal handling
 		* globals
-	* autoconf
 	* optimized settings
 		* memory limit
 		* cpu number
