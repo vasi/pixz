@@ -1,0 +1,182 @@
+pixz
+====
+
+Pixz (pronounced *pixie*) is a parallel, indexing version of `xz`.
+
+Repository: https://github.com/vasi/pixz
+
+Downloads: https://github.com/vasi/pixz/releases
+
+pixz vs xz
+----------
+
+The existing [XZ Utils](http://tukaani.org/xz/) provide great compression in the `.xz` file format,
+but they have two significant problems:
+
+-   they are single-threaded, while most users nowadays have multi-core computers
+-   the `.xz` files they produce are just one big block of compressed data, rather than a collection
+    of smaller blocks which makes random access to the original data impossible
+
+With pixz, both these problems are solved.
+
+Building pixz
+-------------
+
+General help about the building process's configuration step can be acquired via:
+
+```
+./configure --help
+```
+
+### Dependencies
+
+-   pthreads
+-   liblzma 4.999.9-beta-212 or later (from the xz distribution)
+-   libarchive 2.8 or later
+-   AsciiDoc to generate the man page
+
+### Build from Release Tarball
+
+```
+./configure
+make
+make install
+```
+
+You many need `sudo` permissions to run `make install`.
+
+### Build from GitHub
+
+```
+git clone https://github.com/vasi/pixz.git
+cd pixz
+./autogen.sh
+./configure
+make
+make install
+```
+
+You many need `sudo` permissions to run `make install`.
+
+Usage
+-----
+
+### Single Files
+
+Compress a single file (no tarball, just compression), multi-core:
+
+    pixz bar bar.xz
+
+Decompress it, multi-core:
+
+    pixz -d bar.xz bar
+
+### Tarballs
+
+Compress and index a tarball, multi-core:
+
+    pixz foo.tar foo.tpxz
+
+Very quickly list the contents of the compressed tarball:
+
+    pixz -l foo.tpxz
+
+Decompress the tarball, multi-core:
+
+    pixz -d foo.tpxz foo.tar
+
+Very quickly extract a single file, multi-core, also verifies that contents match index:
+
+    pixz -x dir/file < foo.tpxz | tar x
+
+Create a tarball using pixz for multi-core compression:
+
+    tar -Ipixz -cf foo.tpxz foo/
+
+### Specifying Input and Output
+
+These are the same (also work for `-x`, `-d` and `-l` as well):
+
+    pixz foo.tar foo.tpxz
+    pixz < foo.tar > foo.tpxz
+    pixz -i foo.tar -o foo.tpxz
+
+Extract the files from `foo.tpxz` into `foo.tar`:
+
+    pixz -x -i foo.tpxz -o foo.tar file1 file2 ...
+
+Compress to `foo.tpxz`, removing the original:
+
+    pixz foo.tar
+
+Extract to `foo.tar`, removing the original:
+
+    pixz -d foo.tpxz
+
+### Other Flags
+
+Faster, worse compression:
+
+    pixz -1 foo.tar
+
+Better, slower compression:
+
+    pixz -9 foo.tar
+
+Use exactly 2 threads:
+
+    pixz -p 2 foo.tar
+
+Compress, but do not treat it as a tarball, i.e. do not index it:
+
+    pixz -t foo.tar
+
+Decompress, but do not check that contents match index:
+
+    pixz -d -t foo.tpxz
+
+List the xz blocks instead of files:
+
+    pixz -l -t foo.tpxz
+
+For even more tuning flags, check the manual page:
+
+    man pixz
+
+Comparison to other Tools
+-------------------------
+
+### plzip
+
+-   about equally complex and efficient
+-   lzip format seems less-used
+-   version 1 is theoretically indexable, I think
+
+### ChopZip
+
+-   written in Python, much simpler
+-   more flexible, supports arbitrary compression programs
+-   uses streams instead of blocks, not indexable
+-   splits input and then combines output, much higher disk usage
+
+### pxz
+
+-   simpler code
+-   uses OpenMP instead of pthreads
+-   uses streams instead of blocks, not indexable
+-   uses temporary files and does not combine them until the whole file is compressed, high disk and
+    memory usage
+
+### pbzip2
+
+-   not indexable
+-   appears slow
+-   bzip2 algorithm is non-ideal
+
+### pigz
+
+-   not indexable
+
+### dictzip, idzip
+
+-   not parallel
