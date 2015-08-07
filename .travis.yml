@@ -1,0 +1,7 @@
+install: make asciidoc libarchive xz
+
+language: c
+
+compiler:
+  - clang
+  - gcc

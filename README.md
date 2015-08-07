@@ -1,6 +1,8 @@
 pixz
 ====
 
+[![Build Status](https://travis-ci.org/vasi/pixz.svg?branch=master)](https://travis-ci.org/vasi/pixz)
+
 Pixz (pronounced *pixie*) is a parallel, indexing version of `xz`.
 
 Repository: https://github.com/vasi/pixz
