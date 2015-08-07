@@ -1,3 +1,7 @@
+#if HAVE_CONFIG_H
+# include <config.h>
+#endif
+
 #include "pixz.h"
 #include <unistd.h>
 #include <getopt.h>
@@ -47,7 +51,7 @@ static void usage(const char *msg) {
 "(C) 2009-2012 Dave Vasilevsky <dave@vasilevsky.ca>\n"
 "https://github.com/vasi/pixz\n"
 "You may use this software under the FreeBSD License\n",
-	    PIXZ_VERSION);
+	    PACKAGE_VERSION);
 	exit(2);
 }
 
