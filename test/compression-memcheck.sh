@@ -10,7 +10,8 @@ if which valgrind &> /dev/null ; then
 
   trap "rm -f $OUTPUT $MEMCHECK_OUT" EXIT
 
-  valgrind --tool=memcheck --leak-check=full --show-leak-kinds=all --track-origins=yes \
+  # TODO add --show-leak-kinds=all when travis gets newer valgrind
+  valgrind --tool=memcheck --leak-check=full --track-origins=yes \
     $PIXZ $INPUT $OUTPUT \
       2> $MEMCHECK_OUT
 

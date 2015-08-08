@@ -13,7 +13,8 @@ if which valgrind &> /dev/null ; then
 
   $PIXZ $INPUT $OUTPUT
 
-  valgrind --tool=memcheck --leak-check=full --show-leak-kinds=all --track-origins=yes \
+  # TODO add --show-leak-kinds=all when travis gets newer valgrind
+  valgrind --tool=memcheck --leak-check=full --track-origins=yes \
     $PIXZ -d $OUTPUT $UNCOMPRESSED \
       2> $MEMCHECK_OUT
 
