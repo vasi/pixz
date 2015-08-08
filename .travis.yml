@@ -5,6 +5,8 @@ compiler:
   - gcc
 
 before_install:
+  - autoconf --version
+  - exit 1
   - sudo apt-get update -qq
   - sudo apt-get install -qq asciidoc libarchive-dev liblzma-dev xz-utils
 
