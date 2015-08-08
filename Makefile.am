@@ -1,5 +1,5 @@
 ACLOCAL_AMFLAGS = -I m4
 
-SUBDIRS = src
+SUBDIRS = src test
 
 EXTRA_DIST = LICENSE m4 NEWS README test.sh TODO

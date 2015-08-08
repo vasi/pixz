@@ -46,5 +46,6 @@ AC_FUNC_STRTOD
 AC_CHECK_FUNCS([memchr memmove memset strtol])
 
 AC_CONFIG_FILES([Makefile
-                 src/Makefile])
+                 src/Makefile
+                 test/Makefile])
 AC_OUTPUT
