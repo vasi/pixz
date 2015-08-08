@@ -1,14 +1,21 @@
+sudo: false
+
 language: c
 
 compiler:
   - clang
   - gcc
 
-before_install:
-  - sudo apt-get update -qq
-  - sudo apt-get install -qq asciidoc libarchive-dev liblzma-dev xz-utils
+addons:
+  apt:
+    packages:
+      - asciidoc
+      - libarchive-dev
+      - liblzma-dev
+      - xz-utils
 
 script:
+  - autoconf --version
   - ./autogen.sh
   - ./configure
   - make

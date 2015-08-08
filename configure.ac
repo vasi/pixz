@@ -27,6 +27,7 @@ PKG_CHECK_MODULES(LZMA, liblzma)
 AC_CHECK_HEADERS([stdint.h stdlib.h string.h unistd.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
+# add when travis has autoconf 2.69+ AC_CHECK_HEADER_STDBOOL
 AC_TYPE_OFF_T
 AC_TYPE_SIZE_T
 AC_TYPE_SSIZE_T
