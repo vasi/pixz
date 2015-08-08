@@ -18,6 +18,7 @@ Makefile.in
 /install-sh
 /ltmain.sh
 /missing
+/test-driver
 
 # created by configure
 
@@ -38,3 +39,8 @@ Makefile
 pixz
 pixz.1
 *.tar.*
+
+# created by make check
+
+/test/*.log
+/test/*.trs
