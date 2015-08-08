@@ -45,6 +45,7 @@ static void usage(const char *msg) {
 "  -p NUM             Use a maximum of NUM CPU-intensive threads\n"
 "  -t                 Don't assume input is in tar format\n"
 "  -k                 Keep original input (do not remove it)\n"
+"  -c                 ignored"
 "  -h                 Print this help\n"
 "\n"
 "pixz %s\n"
@@ -67,8 +68,9 @@ int main(int argc, char **argv) {
 	char *optend;
 	long optint;
     double optdbl;
-    while ((ch = getopt(argc, argv, "dxli:o:tkvhp:0123456789f:q:e")) != -1) {
+    while ((ch = getopt(argc, argv, "dcxli:o:tkvhp:0123456789f:q:e")) != -1) {
         switch (ch) {
+            case 'c': break;
             case 'd': op = OP_READ; break;
             case 'x': op = OP_EXTRACT; break;
             case 'l': op = OP_LIST; break;
