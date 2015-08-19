@@ -24,7 +24,7 @@ PKG_CHECK_MODULES(LIBARCHIVE, libarchive)
 PKG_CHECK_MODULES(LZMA, liblzma)
 
 # Checks for header files.
-AC_CHECK_HEADERS([stdint.h stdlib.h string.h unistd.h])
+AC_CHECK_HEADERS([fcntl.h stdint.h stdlib.h string.h unistd.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 # add when travis has autoconf 2.69+ AC_CHECK_HEADER_STDBOOL
@@ -43,7 +43,7 @@ AC_SYS_LARGEFILE
 AC_FUNC_MALLOC
 AC_FUNC_REALLOC
 AC_FUNC_STRTOD
-AC_CHECK_FUNCS([memchr memmove memset strtol])
+AC_CHECK_FUNCS([memchr memmove memset strerror strtol])
 
 AC_CONFIG_FILES([Makefile
                  src/Makefile

@@ -3,6 +3,8 @@
 #endif
 
 #include "pixz.h"
+#include <errno.h>
+#include <fcntl.h>
 #include <unistd.h>
 #include <getopt.h>
 
@@ -130,12 +132,33 @@ int main(int argc, char **argv) {
 				usage("Unknown suffix");
         }
     }
-    
+
     if (ipath && !(gInFile = fopen(ipath, "r")))
         die("Can't open input file");
-    if (opath && !(gOutFile = fopen(opath, "w")))
-        die("Can't open output file");
-	
+
+    if (opath) {
+      if (gInFile == stdin) {
+        // can't read permissions of original file, because we read from stdin,
+        // using umask permissions
+        if (!(gOutFile = fopen(opath, "w")))
+          die("can not open output file: %s: %s", opath, strerror(errno));
+
+      } else {
+        // read permissions of original file,
+        // use them to create / open output file
+        struct stat input_stat;
+        int output_fd;
+
+        stat(ipath, &input_stat);
+
+        if ((output_fd = open(opath, O_CREAT | O_WRONLY, input_stat.st_mode)) == -1)
+          die("can not open output file: %s: %s", opath, strerror(errno));
+
+        if (!(gOutFile = fdopen(output_fd, "w")))
+          die("can not open output file: %s: %s", opath, strerror(errno));
+      }
+    }
+
     switch (op) {
         case OP_WRITE:
 			if (isatty(fileno(gOutFile)) == 1)
