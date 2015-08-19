@@ -1,4 +1,5 @@
 TESTS = \
+	compress-file-permissions.sh \
 	single-file-round-trip.sh \
 	xz-compatibility-c-option.sh
 
