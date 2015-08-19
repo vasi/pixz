@@ -43,7 +43,7 @@ AC_SYS_LARGEFILE
 AC_FUNC_MALLOC
 AC_FUNC_REALLOC
 AC_FUNC_STRTOD
-AC_CHECK_FUNCS([memchr memmove memset strtol])
+AC_CHECK_FUNCS([memchr memmove memset strerror strtol])
 
 AC_CONFIG_FILES([Makefile
                  src/Makefile
