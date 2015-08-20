@@ -134,7 +134,7 @@ int main(int argc, char **argv) {
     }
 
     if (ipath && !(gInFile = fopen(ipath, "r")))
-        die("Can't open input file");
+      die("can not open input file: %s: %s", ipath, strerror(errno));
 
     if (opath) {
       if (gInFile == stdin) {
