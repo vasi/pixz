@@ -13,13 +13,9 @@ pixz vs xz
 ----------
 
 The existing [XZ Utils](http://tukaani.org/xz/) provide great compression in the `.xz` file format,
-but they have two significant problems:
-
--   they are single-threaded, while most users nowadays have multi-core computers
--   the `.xz` files they produce are just one big block of compressed data, rather than a collection
-    of smaller blocks which makes random access to the original data impossible
-
-With pixz, both these problems are solved.
+but they produce just one big block of compressed data. Pixz instead produces a collection of
+smaller blocks which makes random access to the original data possible. This is especially useful
+for large tarballs.
 
 Building pixz
 -------------
