@@ -17,6 +17,18 @@ but they produce just one big block of compressed data. Pixz instead produces a 
 smaller blocks which makes random access to the original data possible. This is especially useful
 for large tarballs.
 
+### Differences to xz
+
+-   `pixz` automatically indexes tarballs during compression
+-   `pixz` defaults to using all available CPU cores, while `xz` defaults to using only one core
+-   `pixz` provides `-i` and `-o` command line options to specify input and output file
+-   `pixz` does not support the command line option `-z` or `--compress`
+-   `pixz` does not support the command line option `-c` or `--stdout`
+-   `-f` command line option is incompatible
+-   `-l` command line option output differs
+-   `-q` command line option is incompatible
+-   `-t` command line option is incompatible
+
 Building pixz
 -------------
 
