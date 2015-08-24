@@ -1,5 +1,6 @@
 #include "pixz.h"
 
+#include <errno.h>
 #include <stdarg.h>
 #include <math.h>
 
@@ -213,7 +214,16 @@ static void read_file_index_make_space(void) {
     if (expand || gMoved >= gFIBSize) { // malloc more space
         gStream.avail_out += gFIBSize;
         gFIBSize *= 2;
-        gFileIndexBuf = realloc(gFileIndexBuf, gFIBSize);
+
+        uint8_t *new_gFileIndexBuf = realloc(gFileIndexBuf, gFIBSize);
+
+        if (new_gFileIndexBuf == NULL) {
+          // TODO is recovery possible? does it even make sense?
+          // @see https://github.com/vasi/pixz/issues/8#issuecomment-134113347
+          die("memory re-allocation failure: %s", strerror(errno));
+        } else {
+          gFileIndexBuf = new_gFileIndexBuf;
+        }
     }
 }
 
