@@ -219,6 +219,7 @@ static void read_file_index_make_space(void) {
 
         if (new_gFileIndexBuf == NULL) {
           // TODO is recovery possible? does it even make sense?
+          // @see https://github.com/vasi/pixz/issues/8#issuecomment-134113347
           die("memory re-allocation failure: %s", strerror(errno));
         } else {
           gFileIndexBuf = new_gFileIndexBuf;
