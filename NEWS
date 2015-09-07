@@ -1,3 +1,14 @@
+1.0.3 - Sep 7, 2015
+
+  * complete autotools build, see README.md for build instructions
+  * large-file support for 32-bit systems
+  * creates output file with permissions of input file (if possible, i.e. not
+    reading from stdin)
+  * better error messages on incorrect input path
+  * list main differences between pixz and xz in README
+  * fix issue with extreme (-e) command line option parsing
+  * adds keep input (-k) command line option
+
 1.0.2 - Jan 8, 2013
 
   * Fix a crashing bug when input is incompressible
