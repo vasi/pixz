@@ -81,7 +81,7 @@ RESOURCES
 ---------
 The pixz homepage: <http://github.com/vasi/pixz/>
 
-Source downloads: <http://sourceforge.net/projects/pixz/files/>
+Source downloads: <https://github.com/vasi/pixz/releases/>
 
 COPYRIGHT
 ---------
