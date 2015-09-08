@@ -3,7 +3,7 @@ bin_PROGRAMS = pixz
 pixz_CC = $(PTHREAD_CC)
 pixz_CFLAGS = $(PTHREAD_CFLAGS) -Wall -Wno-unknown-pragmas
 pixz_CPPFLAGS = $(LIBARCHIVE_CPPFLAGS) $(LZMA_CPPFLAGS)
-pixz_LDADD = -lm $(LIBARCHIVE_LIBS) $(LZMA_LIBS) $(PTHREAD_LIBS)
+pixz_LDADD = $(LIBARCHIVE_LIBS) $(LZMA_LIBS) $(PTHREAD_LIBS)
 
 pixz_SOURCES = \
 	common.c \
