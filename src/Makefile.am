@@ -16,8 +16,11 @@ pixz_SOURCES = \
 	write.c
 
 pixz.1: pixz.1.asciidoc
-	$(A2X) -a manversion=$(PACKAGE_VERSION) -f manpage pixz.1.asciidoc
+	$(A2X) -a manversion=$(PACKAGE_VERSION) -f manpage $(top_srcdir)/src/pixz.1.asciidoc
+	if ! test -f pixz.1 ; then mv -f $(top_srcdir)/src/pixz.1 . ; fi
 
 man_MANS = pixz.1
+
+CLEANFILES = pixz.1
 
 EXTRA_DIST = pixz.1.asciidoc
