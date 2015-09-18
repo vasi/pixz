@@ -12,10 +12,20 @@ AM_INIT_AUTOMAKE([foreign])
 
 # Checks for programs.
 AC_PROG_CC_STDC
-AC_CHECK_PROG(A2X, a2x, a2x, [])
-if test "x$A2X" = x ; then
-  AC_MSG_ERROR([AsciiDoc not found.])
-fi
+
+# Check for a2x only if the man page is missing, i.e. we are building from git. The release tarballs
+# are set up to include the man pages. This way, only people creating tarballs via `make dist` and
+# people building from git need a2x as a dependency.
+AC_CHECK_FILE(
+  [src/pixz.1],
+  [],
+  [
+    AC_CHECK_PROG(A2X, a2x, a2x, [])
+    if test "x$A2X" = x ; then
+      AC_MSG_ERROR([AsciiDoc not found, not able to generate the man page.])
+    fi
+  ]
+)
 
 # Checks for libraries.
 AC_CHECK_LIB([m], [ceil])
