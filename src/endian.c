@@ -19,6 +19,22 @@ void xle64enc(uint8_t *d, uint64_t n) {
 	#include <sys/endian.h>
 #endif
 
+#if !HAVE_DECL_HTOLE64
+# if __BYTE_ORDER == __LITTLE_ENDIAN
+#  define htole64(x) (x)
+# else
+#  define htole64(x) __bswap_64 (x)
+# endif
+#endif
+
+#if !HAVE_DECL_LE64TOH
+# if __BYTE_ORDER == __LITTLE_ENDIAN
+#  define le64toh(x) (x)
+# else
+#  define le64toh(x) __bswap_64 (x)
+# endif
+#endif
+
 uint64_t xle64dec(const uint8_t *d) {
     return le64toh(*(uint64_t*)d);
 }

@@ -54,6 +54,12 @@ AC_FUNC_MALLOC
 AC_FUNC_REALLOC
 AC_FUNC_STRTOD
 AC_CHECK_FUNCS([memchr memmove memset strerror strtol])
+AC_CHECK_DECLS([htole64, le64toh],
+               [],
+               [
+                 AC_CHECK_DECLS([htole64, le64toh], [], [], [#include <endian.h>])
+               ],
+               [#include <sys/endian.h>])
 
 AC_CONFIG_FILES([Makefile
                  src/Makefile
