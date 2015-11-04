@@ -344,10 +344,13 @@ static lzma_index *next_index(off_t *pos) {
 }
 
 bool decode_index(void) {
-    if (fseeko(gInFile, 0, SEEK_END) == -1)
+	if (fseeko(gInFile, 0, SEEK_END) == -1) {
+		fprintf(stderr, "can not seek in input: %s\n", strerror(errno));
 		return false; // not seekable
+	}
+
 	off_t pos = ftello(gInFile);
-	
+
 	gIndex = NULL;
 	while (pos > 0) {
 		lzma_index *index = next_index(&pos);
@@ -355,7 +358,7 @@ bool decode_index(void) {
 			die("Error concatenating indices");
 		gIndex = index;
 	}
-	
+
 	return (gIndex != NULL);
 }
 
