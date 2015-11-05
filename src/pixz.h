@@ -1,3 +1,7 @@
+#if HAVE_CONFIG_H
+# include <config.h>
+#endif
+
 #include <lzma.h>
 
 #define __USE_LARGEFILE 1
