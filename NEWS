@@ -1,3 +1,7 @@
+1.0.6 - Nov 5, 2015
+
+  * fixes large file support for listing
+
 1.0.5 - Sep 21, 2015
 
   * add htole64 and le64toh on glibc < 2.9
