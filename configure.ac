@@ -20,12 +20,27 @@ AC_CHECK_FILE(
   [src/pixz.1],
   [],
   [
-    AC_CHECK_PROG(A2X, a2x, a2x, [])
-    if test "x$A2X" = x ; then
-      AC_MSG_ERROR([AsciiDoc not found, not able to generate the man page.])
-    fi
+    AC_ARG_WITH(
+      [manpage],
+      [  --without-manpage       don't build man page],
+      [case ${withval} in
+        yes) manpage=true ;;
+        no)  manpage=false ;;
+        *)   AC_MSG_ERROR([bad value ${withval} for --with-manpage]) ;;
+      esac],
+      [manpage=true]
+    )
   ]
 )
+
+AM_CONDITIONAL([MANPAGE], [test x$manpage = xtrue])
+
+if test x$manpage = xtrue ; then
+  AC_CHECK_PROG(A2X, a2x, a2x, [])
+  if test "x$A2X" = x ; then
+    AC_MSG_ERROR([AsciiDoc not found, not able to generate the man page.])
+  fi
+fi
 
 # Checks for libraries.
 AC_CHECK_LIB([m], [ceil])

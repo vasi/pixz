@@ -15,6 +15,7 @@ pixz_SOURCES = \
 	read.c \
 	write.c
 
+if MANPAGE
 # TODO remove when possible: This is a hack because a2x is not able to output the man pages to a
 # specific directory, only to where the source is.
 pixz.1: pixz.1.asciidoc
@@ -26,3 +27,4 @@ man_MANS = pixz.1
 CLEANFILES = pixz.1
 
 EXTRA_DIST = $(man_MANS) pixz.1.asciidoc
+endif
