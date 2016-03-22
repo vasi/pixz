@@ -15,6 +15,7 @@ void xle64enc(uint8_t *d, uint64_t n) {
 #include <stdint.h>
 #ifdef __linux__
 	#include <endian.h>
+	#include <byteswap.h>
 #else
 	#include <sys/endian.h>
 #endif
@@ -23,7 +24,7 @@ void xle64enc(uint8_t *d, uint64_t n) {
 # if __BYTE_ORDER == __LITTLE_ENDIAN
 #  define htole64(x) (x)
 # else
-#  define htole64(x) __bswap_64 (x)
+#  define htole64(x) bswap_64 (x)
 # endif
 #endif
 
@@ -31,7 +32,7 @@ void xle64enc(uint8_t *d, uint64_t n) {
 # if __BYTE_ORDER == __LITTLE_ENDIAN
 #  define le64toh(x) (x)
 # else
-#  define le64toh(x) __bswap_64 (x)
+#  define le64toh(x) bswap_64 (x)
 # endif
 #endif
 
