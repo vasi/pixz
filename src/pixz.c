@@ -43,7 +43,7 @@ static void usage(const char *msg) {
 "  -p NUM             Use a maximum of NUM CPU-intensive threads\n"
 "  -t                 Don't assume input is in tar format\n"
 "  -k                 Keep original input (do not remove it)\n"
-"  -c                 ignored"
+"  -c                 ignored\n"
 "  -h                 Print this help\n"
 "\n"
 "pixz %s\n"
