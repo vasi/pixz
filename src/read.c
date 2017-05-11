@@ -538,7 +538,7 @@ static void read_thread(void) {
             pipeline_item_t *pi;
             queue_pop(gPipelineStartQ, (void**)&pi);
             io_block_t *ib = (io_block_t*)(pi->data);
-            block_capacity(ib, iter.block.unpadded_size,
+            block_capacity(ib, bsize,
                 iter.block.uncompressed_size);
             
 	        ib->insize = fread(ib->input, 1, bsize, gInFile);
