@@ -1,16 +1,27 @@
+dist: trusty
+sudo: false
+
 language: c
 
 compiler:
   - clang
   - gcc
 
-before_install:
-  - sudo apt-get update -qq
-  - sudo apt-get install -qq asciidoc cppcheck libarchive-dev liblzma-dev xz-utils
+addons:
+  apt:
+    packages:
+      - asciidoc
+      - libxml2-utils
+      - xmlto
+      - cppcheck
+      - libarchive-dev
+      - liblzma-dev
+      - xz-utils
 
 script:
   - autoconf --version
+  - automake --version
   - ./autogen.sh
   - ./configure
   - make
-  - make check
+  - make distcheck
