@@ -11,7 +11,7 @@ struct wanted_t {
     wanted_t *next;
     char *name;
     off_t start, end;
-    size_t size;
+    off_t size;
 };
 
 static wanted_t *gWantedFiles = NULL;
@@ -132,8 +132,8 @@ void pixz_read(bool verify, size_t nspecs, char **specs) {
             const char *path = archive_entry_pathname(entry);
             if (!lastmulti) {
                 if (wlast && wlast->size != off - lastoff)
-                    die("Index and archive show differing sizes for %s: %d vs %d",
-                        wlast->name, wlast->size, off - lastoff);
+                    die("Index and archive show differing sizes for %s: %jd vs %jd",
+                        wlast->name, (intmax_t)wlast->size, (intmax_t)(off - lastoff));
                 lastoff = off;
             }
             
@@ -635,7 +635,7 @@ static ssize_t tar_read(struct archive *ar, void *ref, const void **bufp) {
         return 0;
     
     off_t off;
-    size_t size;
+    off_t size;
     io_block_t *ib = (io_block_t*)(gArItem->data);
     if (gWantedFiles && gExplicitFiles) {
         debug("tar want: %s", gArWanted->name);
