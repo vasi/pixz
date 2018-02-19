@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 if which cppcheck &> /dev/null ; then
   cppcheck --error-exitcode=1 $srcdir/../src

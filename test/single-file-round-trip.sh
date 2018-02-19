@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 PIXZ=../src/pixz
 
@@ -11,4 +11,4 @@ trap "rm -f $COMPRESSED $UNCOMPRESSED" EXIT
 $PIXZ $INPUT $COMPRESSED
 $PIXZ -d $COMPRESSED $UNCOMPRESSED
 
-[[ $(cat $INPUT | md5sum) = $(cat $UNCOMPRESSED | md5sum) ]] || exit 1
+[ "$(cat $INPUT | md5sum)" = "$(cat $UNCOMPRESSED | md5sum)" ] || exit 1
