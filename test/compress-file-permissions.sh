@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 PIXZ=../src/pixz
 
@@ -10,4 +10,4 @@ echo foo > $INPUT
 
 $PIXZ $INPUT
 
-[[ $(stat -c "%a" $INPUT.xz) = 600 ]]
+[ "$(stat -c "%a" $INPUT.xz)" = 600 ]
