@@ -13,6 +13,7 @@ void xle64enc(uint8_t *d, uint64_t n) {
 #elif defined(__linux__) || defined(__FreeBSD__)
 
 #include <stdint.h>
+#include <string.h>
 #ifdef __linux__
 	#include <endian.h>
 	#include <byteswap.h>
@@ -37,11 +38,14 @@ void xle64enc(uint8_t *d, uint64_t n) {
 #endif
 
 uint64_t xle64dec(const uint8_t *d) {
-    return le64toh(*(uint64_t*)d);
+    uint64_t tmp;
+    memcpy(&tmp, d, sizeof(tmp));
+    return le64toh(tmp);
 }
 
 void xle64enc(uint8_t *d, uint64_t n) {
-    *(uint64_t*)d = htole64(n);
+    uint64_t tmp = htole64(n);
+    memcpy(d, &tmp, sizeof(tmp));
 }
 
 #else
