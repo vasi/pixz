@@ -122,7 +122,7 @@ static lzma_vli find_file_index(void **bdatap) {
     lzma_vli loc = lzma_index_uncompressed_size(gIndex) - 1;
     if (lzma_index_iter_locate(&iter, loc))
         die("Can't locate file index block");
-	if (iter.stream.number != 1)
+    if (iter.stream.number != 1)
 		return 0; // Too many streams for one file index
 	
     void *bdata = decode_file_index_start(iter.block.compressed_file_offset,
@@ -310,7 +310,7 @@ static lzma_index *next_index(off_t *pos) {
     if (fseeko(gInFile, *pos, SEEK_SET) == -1)
         die("Error seeking to index");
 	
-	lzma_stream strm = LZMA_STREAM_INIT;
+    lzma_stream strm = LZMA_STREAM_INIT;
 	lzma_index *index;
     if (lzma_index_decoder(&strm, &index, MEMLIMIT) != LZMA_OK)
         die("Error creating index decoder");
