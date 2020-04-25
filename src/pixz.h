@@ -54,8 +54,8 @@ void pixz_read(bool verify, size_t nspecs, char **specs);
 
 #pragma mark UTILS
 
-FILE *gInFile, *gOutFile;
-lzma_stream gStream;
+extern FILE *gInFile, *gOutFile;
+extern lzma_stream gStream;
 
 extern lzma_index *gIndex;
 

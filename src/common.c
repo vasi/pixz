@@ -7,7 +7,7 @@
 
 #pragma mark UTILS
 
-FILE *gInFile = NULL;
+FILE *gInFile = NULL, *gOutFile = NULL;
 lzma_stream gStream = LZMA_STREAM_INIT;
 
 
