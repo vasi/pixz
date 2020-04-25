@@ -71,13 +71,20 @@ AC_FUNC_STRTOD
 AC_CHECK_FUNCS([memchr memmove memset strerror strtol])
 AC_CHECK_HEADER([sys/endian.h],
                [
-                 AC_CHECK_DECLS([htole64, le64toh], [], [], [#define _GNU_SOURCE 1 #include <sys/endian.h>])
+                 AC_CHECK_DECLS([htole64, le64toh], [], [], [
+                  #define _GNU_SOURCE 1
+                  #include <sys/endian.h>
+                 ]
+               )
                ],
                [], [])
 
 AC_CHECK_HEADER([endian.h],
                [
-                 AC_CHECK_DECLS([htole64, le64toh], [], [], [#define _GNU_SOURCE 1 #include <endian.h>])
+                 AC_CHECK_DECLS([htole64, le64toh], [], [], [
+                  #define _GNU_SOURCE 1
+                  #include <endian.h>
+                 ])
                ],
                [], [])
 

@@ -12,6 +12,7 @@ void xle64enc(uint8_t *d, uint64_t n) {
 
 #elif defined(__linux__) || defined(__FreeBSD__)
 
+#include "config.h"
 #include <stdint.h>
 #include <string.h>
 #ifdef __linux__
