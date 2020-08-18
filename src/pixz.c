@@ -47,7 +47,7 @@ static void usage(const char *msg) {
 "  -h                 Print this help\n"
 "\n"
 "pixz %s\n"
-"(C) 2009-2012 Dave Vasilevsky <dave@vasilevsky.ca>\n"
+"(C) 2009-2020 Dave Vasilevsky <dave@vasilevsky.ca>\n"
 "https://github.com/vasi/pixz\n"
 "You may use this software under the FreeBSD License\n",
 	    PACKAGE_VERSION);

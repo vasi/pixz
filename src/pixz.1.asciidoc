@@ -85,7 +85,7 @@ Source downloads: <https://github.com/vasi/pixz/releases/>
 
 COPYRIGHT
 ---------
-Copyright (C) 2009-2010 Dave Vasilevsky. Use of this software is granted under the FreeBSD License.
+Copyright (C) 2009-2020 Dave Vasilevsky. Use of this software is granted under the FreeBSD License.
 
 SEE ALSO
 --------
