@@ -16,8 +16,8 @@ AC_PROG_CC_STDC
 # Check for a2x only if the man page is missing, i.e. we are building from git. The release tarballs
 # are set up to include the man pages. This way, only people creating tarballs via `make dist` and
 # people building from git need a2x as a dependency.
-AC_CHECK_FILE(
-  [src/pixz.1],
+AS_IF(
+  [test -f src/pixz.1],
   [],
   [
     AC_ARG_WITH(
