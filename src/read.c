@@ -74,7 +74,7 @@ typedef enum {
 static rbuf_read_status rbuf_read(size_t bytes);
 static bool rbuf_cycle(lzma_stream *stream, bool start, size_t skip);
 static void rbuf_consume(size_t bytes);
-static void rbuf_dispatch(void);
+static void rbuf_dispatch(size_t bytes);
 
 static bool read_header(lzma_check *check);
 static bool read_block(bool force_stream, lzma_check check, off_t uoffset);
@@ -300,13 +300,18 @@ static void block_capacity(io_block_t *ib, size_t incap, size_t outcap) {
 	}
 }
 
+// Get the next rbuf from the pipeline, and put it in gRbuf
+static void rbuf_from_pipeline(void) {
+    queue_pop(gPipelineStartQ, (void**)&gRbufPI);
+    gRbuf = (io_block_t*)(gRbufPI->data);
+    gRbuf->insize = gRbuf->outsize = 0;
+}
+
 // Ensure at least this many bytes available
 // Return 1 on success, zero on EOF, -1 on error
 static rbuf_read_status rbuf_read(size_t bytes) {
 	if (!gRbufPI) {
-        queue_pop(gPipelineStartQ, (void**)&gRbufPI);
-		gRbuf = (io_block_t*)(gRbufPI->data);
-		gRbuf->insize = gRbuf->outsize = 0;
+        rbuf_from_pipeline();
 	}
 	
 	if (gRbuf->insize >= bytes)
@@ -339,10 +344,22 @@ static void rbuf_consume(size_t bytes) {
 	gRbuf->insize -= bytes;
 }
 
-static void rbuf_dispatch(void) {
-	pipeline_split(gRbufPI);
-	gRbufPI = NULL;
-	gRbuf = NULL;
+static void rbuf_dispatch(size_t total_size) {
+    pipeline_item_t *prev_pi = gRbufPI;
+    if (gRbuf->insize > total_size) {
+        // We have extra data, get a place for it to live
+        io_block_t *prev_rbuf = gRbuf;
+        rbuf_from_pipeline();
+        size_t extra = prev_rbuf->insize - total_size;
+        block_capacity(gRbuf, extra, 0);
+        memcpy(gRbuf->input, prev_rbuf->input + total_size, extra);
+        gRbuf->insize = extra;
+    } else {
+        gRbufPI = NULL;
+        gRbuf = NULL;
+    }
+
+	pipeline_split(prev_pi);
 }
 
 
@@ -390,9 +407,10 @@ static bool read_block(bool force_stream, lzma_check check, off_t uoffset) {
 		gRbuf->check = check;
 		gRbuf->btype = BLOCK_SIZED;
 		
-		if (rbuf_read(lzma_block_total_size(&block)) != RBUF_FULL)
+        size_t total_size = lzma_block_total_size(&block);
+		if (rbuf_read(total_size) != RBUF_FULL)
 			die("Error reading block contents");
-		rbuf_dispatch();
+		rbuf_dispatch(total_size);
 	}
 	return true;
 }
