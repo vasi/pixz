@@ -51,7 +51,9 @@ static void usage(const char *msg) {
 "https://github.com/vasi/pixz\n"
 "You may use this software under the FreeBSD License\n",
 	    PACKAGE_VERSION);
-	exit(2);
+	if (msg)
+		exit(2);
+	exit(0);
 }
 
 int main(int argc, char **argv) {    
