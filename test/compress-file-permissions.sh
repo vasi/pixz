@@ -10,4 +10,4 @@ echo foo > $INPUT
 
 $PIXZ $INPUT
 
-[ "$(stat -c "%a" $INPUT.xz)" = 600 ]
+[ "$(find $INPUT.xz -perm 0600)" = "$INPUT.xz" ]
