@@ -44,6 +44,7 @@ static void usage(const char *msg) {
 "  -t                 Don't assume input is in tar format\n"
 "  -k                 Keep original input (do not remove it)\n"
 "  -c                 ignored\n"
+"  -V                 Print version and exit\n"
 "  -h                 Print this help\n"
 "\n"
 "pixz %s\n"
@@ -54,6 +55,11 @@ static void usage(const char *msg) {
 	if (msg)
 		exit(2);
 	exit(0);
+}
+
+static void version() {
+    fprintf(stderr, "pixz %s\n", PACKAGE_VERSION);
+    exit(0);
 }
 
 int main(int argc, char **argv) {    
@@ -80,6 +86,7 @@ int main(int argc, char **argv) {
             case 'k': keep_input = true; break;
 			case 'h': usage(NULL); break;
             case 'e': extreme = true; break;
+            case 'V': version(); break;
 			case 'f':
                 optdbl = strtod(optarg, &optend);
                 if (*optend || optdbl <= 0)
