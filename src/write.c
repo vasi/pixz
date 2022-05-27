@@ -448,7 +448,7 @@ static void write_block(pipeline_item_t *pi) {
 static void encode_index(void) {
     if (lzma_index_encoder(&gStream, gIndex) != LZMA_OK)
         die("Error creating index encoder");
-    uint8_t obuf[CHUNKSIZE];
+    uint8_t obuf[CHUNKSIZE] = {};
     lzma_ret err = LZMA_OK;
     while (err != LZMA_STREAM_END) {
         gStream.next_out = obuf;
@@ -513,7 +513,7 @@ static void write_file_index_bytes(size_t size, uint8_t *buf) {
 }
 
 static void write_file_index_buf(lzma_action action) {
-    uint8_t obuf[CHUNKSIZE];
+    uint8_t obuf[CHUNKSIZE] = {};
     gStream.avail_in = gFileIndexBufPos;
     gStream.next_in = gFileIndexBuf;
     lzma_ret err = LZMA_OK;
