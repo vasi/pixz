@@ -536,7 +536,7 @@ static void read_thread(void) {
                 debug("read: skip %llu", iter.block.number_in_file);
                 continue;
             }
-            for ( ; w && w->end < uend; w = w->next) ;
+            for ( ; w && w->end <= uend; w = w->next) ;
         }
         debug("read: want %llu", iter.block.number_in_file);
         
