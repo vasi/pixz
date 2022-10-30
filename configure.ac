@@ -68,7 +68,7 @@ AC_SYS_LARGEFILE
 AC_FUNC_MALLOC
 AC_FUNC_REALLOC
 AC_FUNC_STRTOD
-AC_CHECK_FUNCS([memchr memmove memset strerror strtol])
+AC_CHECK_FUNCS([memchr memmove memset strerror strtol sched_getaffinity])
 AC_CHECK_HEADER([sys/endian.h],
                [
                  AC_CHECK_DECLS([htole64, le64toh], [], [], [
