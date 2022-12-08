@@ -10,12 +10,12 @@ void xle64enc(uint8_t *d, uint64_t n) {
     OSWriteLittleInt64(d, 0, n);
 }
 
-#elif defined(__linux__) || defined(__FreeBSD__)
+#elif defined(__linux__) || defined(__FreeBSD__) || defined(__midipix__)
 
 #include "config.h"
 #include <stdint.h>
 #include <string.h>
-#ifdef __linux__
+#if defined(__linux__) || defined(__midipix__)
 	#include <endian.h>
 	#include <byteswap.h>
 #else
