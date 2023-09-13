@@ -388,12 +388,12 @@ void queue_free(queue_t *q) {
 }
 
 void queue_push(queue_t *q, int type, void *data) {
-    pthread_mutex_lock(&q->mutex);
-    
     queue_item_t *i = malloc(sizeof(queue_item_t));
     i->type = type;
     i->data = data;
     i->next = NULL;
+    
+    pthread_mutex_lock(&q->mutex);
     
     if (q->last) {
         q->last->next = i;
@@ -415,12 +415,12 @@ int queue_pop(queue_t *q, void **datap) {
     q->first = i->next;
     if (!q->first)
         q->last = NULL;
+    pthread_mutex_unlock(&q->mutex);
     
     *datap = i->data;
     int type = i->type;
     free(i);
     
-    pthread_mutex_unlock(&q->mutex);
     return type;
 }
 
