@@ -4,6 +4,9 @@
 #include <stdarg.h>
 #include <math.h>
 
+#if HAVE__GET_OSFHANDLE
+    #include <windows.h>
+#endif
 
 #pragma mark UTILS
 
@@ -344,6 +347,17 @@ static lzma_index *next_index(off_t *pos) {
 }
 
 bool decode_index(void) {
+#if HAVE__GET_OSFHANDLE
+    // windows pretends that seeking works on pipes, but then it doesn't
+    // try to check that this is a "regular" file with win api
+    intptr_t hdl = _get_osfhandle(_fileno(gInFile));
+    DWORD ftype = GetFileType((HANDLE)hdl);
+    if (ftype != FILE_TYPE_DISK) {
+        fprintf(stderr, "can not seek in input\n");
+        return false;
+    }
+#endif
+
 	if (fseeko(gInFile, 0, SEEK_END) == -1) {
 		fprintf(stderr, "can not seek in input: %s\n", strerror(errno));
 		return false; // not seekable
