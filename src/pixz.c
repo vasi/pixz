@@ -172,7 +172,7 @@ int main(int argc, char **argv) {
 
     switch (op) {
         case OP_WRITE:
-			if (isatty(fileno(gOutFile)) == 1)
+			if (isatty(fileno(gOutFile)))
 				usage("Refusing to output to a TTY");
 			if (extreme)
 				level |= LZMA_PRESET_EXTREME;
