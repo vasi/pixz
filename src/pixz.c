@@ -164,9 +164,15 @@ int main(int argc, char **argv) {
       }
     }
 
+#ifdef HAVE__SETMODE
+    // Set files to binary encoding
+    _setmode(_fileno(gInFile), O_BINARY);
+    _setmode(_fileno(gOutFile), O_BINARY);
+#endif
+
     switch (op) {
         case OP_WRITE:
-			if (isatty(fileno(gOutFile)) == 1)
+			if (isatty(fileno(gOutFile)))
 				usage("Refusing to output to a TTY");
 			if (extreme)
 				level |= LZMA_PRESET_EXTREME;
