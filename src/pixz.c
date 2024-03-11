@@ -130,7 +130,7 @@ int main(int argc, char **argv) {
             if (opath)
                 usage("Multiple output files specified");
             opath = argv[1];
-        } else if (op != OP_LIST) {
+        } else if (op != OP_LIST && !opath) {
             iremove = true;
             opath = auto_output(op, argv[0]);
 			if (!opath)
