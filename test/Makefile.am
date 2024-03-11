@@ -1,6 +1,8 @@
 TESTS = \
 	compress-file-permissions.sh \
 	cppcheck-src.sh \
+	compression-memcheck.sh \
+	decompression-memcheck.sh \
 	single-file-round-trip.sh \
 	xz-compatibility-c-option.sh \
 	concatenated-small-files.sh
