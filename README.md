@@ -157,6 +157,10 @@ For even more tuning flags, check the manual page:
 Comparison to other Tools
 -------------------------
 
+### 7-zip
+
+will not store the owner/group of files.
+
 ### plzip
 
 -   about equally complex and efficient
