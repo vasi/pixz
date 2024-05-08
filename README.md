@@ -19,16 +19,13 @@ for large tarballs.
 
 ### Differences to xz
 
--   `pixz` automatically indexes tarballs during compression
+-   `pixz` automatically indexes tarballs during compression (unless the `-t` argument is used)
 -   `pixz` supports parallel decompression, which `xz` does not
 -   `pixz` defaults to using all available CPU cores, while `xz` defaults to using only one core
 -   `pixz` provides `-i` and `-o` command line options to specify input and output file
--   `pixz` does not support the command line option `-z` or `--compress`
--   `pixz` does not support the command line option `-c` or `--stdout`
--   `-f` command line option is incompatible
--   `-l` command line option output differs
--   `-q` command line option is incompatible
--   `-t` command line option is incompatible
+-   `pixz` does not need the command line option `-z` (or `--compress`). Instead, it compresses by default, and decompresses if `-d` is passed.
+-   `pixz` uses different logic to decide whether to use stdin/stdout. `pixz somefile` will always output to another file, while `pixz` with no filenames will always use stdin/stdout. There's no `-c` argument to explicitly request stdout.
+-   Some other flags mean different things for `pixz` and `xz`, including `-f`, `-l`, `-q` and `-t`. Please read the manpages for more detail on these.
 
 Building pixz
 -------------
