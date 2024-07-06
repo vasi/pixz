@@ -69,7 +69,7 @@ EXAMPLES
 
   Make tar use pixz for compression.
 
-`pixz -x path/to/file < input.tpxz | tar x`::
+`pixz -x path/to/file path/to/another/file < input.tpxz | tar x`::
 
   Extract one file from an archive, quickly.
 
