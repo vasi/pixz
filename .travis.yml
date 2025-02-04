@@ -16,6 +16,7 @@ addons:
       - cppcheck
       - libarchive-dev
       - liblzma-dev
+      - valgrind
       - xz-utils
 
 script:
