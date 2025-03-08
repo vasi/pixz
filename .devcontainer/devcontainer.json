@@ -1,0 +1,14 @@
+{
+	"name": "pixz",
+	"build": {
+		"dockerfile": "Dockerfile"
+	},
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"ms-vscode.cpptools-extension-pack"
+			]
+		}
+	},
+	"postCreateCommand": "./autogen.sh && ./configure && make -j && make -j check"
+}
