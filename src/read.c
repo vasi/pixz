@@ -197,7 +197,7 @@ void pixz_read(bool verify, size_t nspecs, char **specs) {
 #pragma mark BLOCKS
 
 static void *block_create(void) {
-    io_block_t *ib = malloc(sizeof(io_block_t));
+    io_block_t *ib = xmalloc(sizeof(io_block_t));
 	ib->incap = ib->outcap = 0;
 	ib->input = ib->output = NULL;
     return ib;
@@ -266,7 +266,7 @@ static void wanted_files(size_t count, char **specs) {
         }
         
         if (match) {
-            wanted_t *w = malloc(sizeof(wanted_t));
+            wanted_t *w = xmalloc(sizeof(wanted_t));
             *w = (wanted_t){ .name = f->name, .start = f->offset,
                 .end = f->next->offset, .next = NULL };
             w->size = w->end - w->start;
@@ -296,7 +296,7 @@ static void block_capacity(io_block_t *ib, size_t incap, size_t outcap) {
 	}
 	if (outcap > ib->outcap) {
 		ib->outcap = outcap;
-		ib->output = malloc(outcap);
+		ib->output = xmalloc(outcap);
 	}
 }
 

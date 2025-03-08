@@ -216,7 +216,7 @@ static char *subsuf(char *in, char *suf1, char *suf2) {
         return NULL;
     
     size_t li = strlen(in), l1 = strlen(suf1), l2 = strlen(suf2);
-    char *r = malloc(li + l2 - l1 + 1);
+    char *r = xmalloc(li + l2 - l1 + 1);
     memcpy(r, in, li - l1);
     strcpy(r + li - l1, suf2);
     return r;

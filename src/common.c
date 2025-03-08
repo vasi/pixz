@@ -24,11 +24,18 @@ void die(const char *fmt, ...) {
     exit(1);
 }
 
+void *xmalloc(size_t size) {
+    void *r = malloc(size);
+    if (!r)
+        die("Out of memory");
+    return r;
+}
+
 char *xstrdup(const char *s) {
     if (!s)
         return NULL;
     size_t len = strlen(s);
-    char *r = malloc(len + 1);
+    char *r = xmalloc(len + 1);
     if (!r)
         return NULL;
     return memcpy(r, s, len + 1); 
@@ -94,7 +101,7 @@ static void *decode_file_index_start(off_t block_seek, lzma_check check) {
         die("Error seeking to block");
     
     // Some memory in which to keep the discovered filters safe
-    block_wrapper_t *bw = malloc(sizeof(block_wrapper_t));
+    block_wrapper_t *bw = xmalloc(sizeof(block_wrapper_t));
     bw->block = (lzma_block){ .check = check, .filters = bw->filters,
 	 	.version = 0 };
     
@@ -131,7 +138,7 @@ static lzma_vli find_file_index(void **bdatap) {
     void *bdata = decode_file_index_start(iter.block.compressed_file_offset,
 		iter.stream.flags->check);
     
-    gFileIndexBuf = malloc(gFIBSize);
+    gFileIndexBuf = xmalloc(gFIBSize);
     gStream.avail_out = gFIBSize;
     gStream.avail_in = 0;
     
@@ -167,7 +174,7 @@ lzma_vli read_file_index() {
         if (!name)
             break;
         
-        file_index_t *f = malloc(sizeof(file_index_t));
+        file_index_t *f = xmalloc(sizeof(file_index_t));
         f->name = strlen(name) ? xstrdup(name) : NULL;
         f->offset = xle64dec(gFileIndexBuf + gFIBPos);
         gFIBPos += sizeof(uint64_t);
@@ -380,7 +387,7 @@ bool decode_index(void) {
 #pragma mark QUEUE
 
 queue_t *queue_new(queue_free_t freer) {
-    queue_t *q = malloc(sizeof(queue_t));
+    queue_t *q = xmalloc(sizeof(queue_t));
     q->first = q->last = NULL;
     q->freer = freer;
     pthread_mutex_init(&q->mutex, NULL);
@@ -402,7 +409,7 @@ void queue_free(queue_t *q) {
 }
 
 void queue_push(queue_t *q, int type, void *data) {
-    queue_item_t *i = malloc(sizeof(queue_item_t));
+    queue_item_t *i = xmalloc(sizeof(queue_item_t));
     i->type = type;
     i->data = data;
     i->next = NULL;
@@ -485,7 +492,7 @@ void pipeline_create(
 	if (gPipelineProcessMax > 0 && gPipelineProcessMax < gPLProcessCount)
 		gPLProcessCount = gPipelineProcessMax;
 	
-    gPLProcessThreads = malloc(gPLProcessCount * sizeof(pthread_t));
+    gPLProcessThreads = xmalloc(gPLProcessCount * sizeof(pthread_t));
     int qsize = gPipelineQSize ? gPipelineQSize
         : ceil(gPLProcessCount * 1.3 + 1);
     if (qsize < gPLProcessCount) {
@@ -494,7 +501,7 @@ void pipeline_create(
     }
     for (size_t i = 0; i < qsize; ++i) {
         // create blocks, including a margin of error
-        pipeline_item_t *item = malloc(sizeof(pipeline_item_t));
+        pipeline_item_t *item = xmalloc(sizeof(pipeline_item_t));
         item->data = create();
         // seq and next are garbage
         queue_push(gPipelineStartQ, PIPELINE_ITEM, item);

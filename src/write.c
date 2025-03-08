@@ -230,7 +230,7 @@ static void add_file(off_t offset, const char *name) {
         return;
     }
     
-    file_index_t *f = malloc(sizeof(file_index_t));
+    file_index_t *f = xmalloc(sizeof(file_index_t));
     f->offset = gMultiHeader ? gMultiHeaderStart : offset;
     gMultiHeader = false;
     f->name = name ? xstrdup(name) : NULL;
@@ -252,16 +252,16 @@ static void block_free(void *data) {
 }
 
 static void *block_create() {
-    io_block_t *ib = malloc(sizeof(io_block_t));
+    io_block_t *ib = xmalloc(sizeof(io_block_t));
     ib->input = ib->output = NULL;
     return ib;
 }
 
 static void block_alloc(io_block_t *ib, block_parts parts) {
     if ((parts & BLOCK_IN) && !ib->input)
-        ib->input = malloc(gBlockInSize);
+        ib->input = xmalloc(gBlockInSize);
     if ((parts & BLOCK_IN) && !ib->output)
-        ib->output = malloc(gBlockOutSize);
+        ib->output = xmalloc(gBlockOutSize);
     if (!ib->input || !ib->output)
         die("Can't allocate blocks");
 }

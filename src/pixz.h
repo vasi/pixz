@@ -69,6 +69,7 @@ size_t num_threads(void);
 
 extern double gBlockFraction;
 
+void *xmalloc(size_t size);
 
 #pragma mark INDEX
 
